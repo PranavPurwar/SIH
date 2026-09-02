@@ -1,0 +1,53 @@
+export const SCORE_THRESHOLDS = {
+  NOVICE_MAX: 0.40,
+  INTERMEDIATE_MAX: 0.75,
+  ADVANCED_MIN: 0.75,
+  QUALIFIED_MATCH_PCT: 70,
+} as const;
+
+export const SCORING_WEIGHTS = {
+  EXTRACTION_WEIGHT: 0.50,
+  LLM_WEIGHT: 0.50,
+  VECTOR_WEIGHT: 0.50,
+  CERTIFICATION_WEIGHT: 0.10,
+  ASSESSMENT_WEIGHT: 0.15,
+  UNMATCHED_SKILL_DEFAULT: 0.15,
+} as const;
+
+export const MATCHING = {
+  FUZZY_SIMILARITY_THRESHOLD: 0.85,
+  EMBEDDING_SIMILARITY_THRESHOLD: 0.80,
+  SKILL_ALIAS_LEVENSHTEIN_THRESHOLD: 0.85,
+  QUALIFICATION_THRESHOLD_PCT: 70,
+  MAX_RECOMMENDED_COURSES: 5,
+} as const;
+
+export const EMBEDDING = {
+  MODEL: 'nomic-embed-text-v2-moe',
+  DIMENSIONS: 768,
+  MAX_BATCH_SIZE: 100,
+  MAX_TEXT_LENGTH: 3000,
+  QUERY_PREFIX: 'search_query: ',
+  DOCUMENT_PREFIX: 'search_document: ',
+  CALIBRATION_FACTOR: 6.0,
+} as const;
+
+export const RATE_LIMITS = {
+  GENERAL: { windowMs: 60_000, max: 100 },
+  RESUME_UPLOAD: { windowMs: 60_000, max: 5 },
+  SCRAPER: { windowMs: 3_600_000, max: 2 },
+  ASSESSMENT: { windowMs: 60_000, max: 30 },
+} as const;
+
+export const CIRCUIT_BREAKER = {
+  TIMEOUT: 30_000,
+  ERROR_THRESHOLD: 50,
+  RESET_TIMEOUT: 60_000,
+  VOLUME_THRESHOLD: 5,
+} as const;
+
+export const APP = {
+  MAX_UPLOAD_SIZE_BYTES: 5 * 1024 * 1024,
+  PAGINATION_DEFAULT_LIMIT: 25,
+  PAGINATION_MAX_LIMIT: 100,
+} as const;

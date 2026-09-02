@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#FAF8FC]">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillBridge — Placement & Skill Mapping Platform</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            serif: ['Newsreader', 'Georgia', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              bg: '#FAF8FC',
+              card: '#FFFFFF',
+              text: '#1A0B2E',
+              muted: '#6B5B7B',
+              border: '#E9E1F0',
+              accent: '#581C87',
+              accentHover: '#3B0764',
+              surface: '#F3EEF9',
+              tint: '#F5F3FF',
+              tintBorder: '#DDD6FE',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <link rel="stylesheet" href="/css/style.css?v=3.0" />
+</head>
+<body class="min-h-full flex flex-col selection:bg-[#DDD6FE] selection:text-[#1A0B2E]">
+  <div id="app" v-cloak class="flex-1 flex flex-col min-h-screen"></div>
+
+  <script type="module" src="/js/app.js?v=2.2"></script>
+</body>
+</html>

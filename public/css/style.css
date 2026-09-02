@@ -1,0 +1,80 @@
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #FAF8FC;
+  color: #1A0B2E;
+}
+
+[v-cloak] {
+  display: none;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #E9E1F0;
+  border-top-color: #581C87;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.card, .sb-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E9E1F0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(26, 11, 46, 0.04);
+}
+
+.btn-primary {
+  background-color: #581C87;
+  color: #FFFFFF;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.btn-primary:hover {
+  background-color: #3B0764;
+  box-shadow: 0 2px 6px rgba(88, 28, 135, 0.25);
+}
+
+.btn-secondary {
+  background-color: #FFFFFF;
+  border: 1px solid #E9E1F0;
+  color: #1A0B2E;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background-color: #F3EEF9;
+  border-color: #D8B4E2;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D8B4E2;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #581C87;
+}
