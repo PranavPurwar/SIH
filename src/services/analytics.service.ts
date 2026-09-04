@@ -1,7 +1,20 @@
 import { pgPool } from '../db/connection.js';
 import { AppError } from '../lib/errors.js';
 
+export interface CohortStudentSummary {
+  id: string;
+  name: string;
+  email: string;
+  degree: string;
+  institution: string;
+  parsed_skills: string[];
+  readiness_pct: number;
+  applications_count: number;
+  latest_status: string;
+}
+
 export interface InstitutionAnalytics {
+  institution_name: string;
   placement_readiness_pct: number;
   total_students: number;
   total_jobs: number;
@@ -16,18 +29,51 @@ export interface InstitutionAnalytics {
     selected: number;
     rejected: number;
   };
+  cohort_students: CohortStudentSummary[];
 }
 
-export async function getInstitutionalAnalytics(): Promise<InstitutionAnalytics> {
+function extractInstitutionKeyword(name: string): string {
+  if (!name) return '';
+  const lower = name.toLowerCase();
+  if (lower.includes('mit')) return 'MIT';
+  if (lower.includes('iit delhi') || lower.includes('iitd')) return 'IIT Delhi';
+  if (lower.includes('iit bombay') || lower.includes('iitb')) return 'IIT Bombay';
+  if (lower.includes('stanford')) return 'Stanford';
+  if (lower.includes('bits')) return 'BITS Pilani';
+  if (lower.includes('iiit hyderabad')) return 'IIIT Hyderabad';
+  if (lower.includes('iiit delhi')) return 'IIIT Delhi';
+  if (lower.includes('iisc')) return 'IISc';
+  if (lower.includes('dtu')) return 'DTU';
+  return name.trim();
+}
+
+export async function getInstitutionalAnalytics(institutionName?: string): Promise<InstitutionAnalytics> {
   try {
+    const keyword = institutionName ? extractInstitutionKeyword(institutionName) : null;
+
+    let studentQuery = 'SELECT * FROM students';
+    let appQuery = 'SELECT * FROM applications';
+    const params: any[] = [];
+
+    if (keyword) {
+      params.push(`%${keyword}%`);
+      studentQuery = 'SELECT * FROM students WHERE institution ILIKE $1 OR degree ILIKE $1';
+      appQuery = `
+        SELECT a.* 
+        FROM applications a 
+        JOIN students s ON a.student_id = s.id 
+        WHERE s.institution ILIKE $1 OR s.degree ILIKE $1
+      `;
+    }
+
     const [
       { rows: students },
       { rows: jobs },
       { rows: applications },
     ] = await Promise.all([
-      pgPool.query('SELECT * FROM students'),
+      pgPool.query(studentQuery, params),
       pgPool.query('SELECT * FROM jobs'),
-      pgPool.query('SELECT * FROM applications'),
+      pgPool.query(appQuery, params),
     ]);
 
     const studentList = students || [];
@@ -115,7 +161,29 @@ export async function getInstitutionalAnalytics(): Promise<InstitutionAnalytics>
       ? Math.round((readyStudents.length / studentList.length) * 100)
       : 85;
 
+    const cohortStudents: CohortStudentSummary[] = studentList.map((st) => {
+      const evalSkills = Array.isArray(st.evaluated_skills) ? st.evaluated_skills : [];
+      const avgScore = evalSkills.reduce((acc: number, e: any) => acc + (e.depth_score || 0), 0) /
+        Math.max(1, evalSkills.length);
+      const readiness = Math.round(avgScore * 100);
+      const studentApps = appList.filter((a: any) => a.student_id === st.id);
+      const latestStatus = studentApps.length > 0 ? studentApps[0].status : 'Enrolled';
+
+      return {
+        id: st.id,
+        name: st.name,
+        email: st.email,
+        degree: st.degree,
+        institution: st.institution || keyword || 'Academic Institution',
+        parsed_skills: st.parsed_skills || [],
+        readiness_pct: readiness || 80,
+        applications_count: studentApps.length,
+        latest_status: latestStatus || 'Enrolled',
+      };
+    });
+
     return {
+      institution_name: keyword || institutionName || 'All Institutions',
       placement_readiness_pct: readinessPct,
       total_students: studentList.length,
       total_jobs: jobList.length,
@@ -124,8 +192,54 @@ export async function getInstitutionalAnalytics(): Promise<InstitutionAnalytics>
       top_in_demand_skills: topDemand,
       domain_competency_distribution: domainDist,
       hiring_funnel: funnel,
+      cohort_students: cohortStudents,
     };
   } catch (error: any) {
     throw new AppError(500, 'DB_ERROR', 'Failed to retrieve analytics data: ' + error.message);
   }
 }
+
+export async function getInstitutionStudents(institutionName: string, query?: string): Promise<CohortStudentSummary[]> {
+  try {
+    const keyword = extractInstitutionKeyword(institutionName);
+    let sql = `
+      SELECT s.*, 
+             COALESCE(json_agg(a.*) FILTER (WHERE a.id IS NOT NULL), '[]') as applications
+      FROM students s
+      LEFT JOIN applications a ON s.id = a.student_id
+      WHERE (s.institution ILIKE $1 OR s.degree ILIKE $1)
+    `;
+    const params: any[] = [`%${keyword}%`];
+
+    if (query && query.trim()) {
+      params.push(`%${query.trim()}%`);
+      sql += ` AND (s.name ILIKE $2 OR s.email ILIKE $2 OR s.degree ILIKE $2 OR s.parsed_skills::text ILIKE $2)`;
+    }
+
+    sql += ` GROUP BY s.id ORDER BY s.name ASC`;
+    const { rows } = await pgPool.query(sql, params);
+
+    return rows.map((st) => {
+      const evalSkills = Array.isArray(st.evaluated_skills) ? st.evaluated_skills : [];
+      const avgScore = evalSkills.reduce((acc: number, e: any) => acc + (e.depth_score || 0), 0) /
+        Math.max(1, evalSkills.length);
+      const apps = Array.isArray(st.applications) ? st.applications : [];
+      const latestStatus = apps.length > 0 ? apps[0].status : 'Enrolled';
+
+      return {
+        id: st.id,
+        name: st.name,
+        email: st.email,
+        degree: st.degree,
+        institution: st.institution || keyword,
+        parsed_skills: st.parsed_skills || [],
+        readiness_pct: Math.round(avgScore * 100) || 80,
+        applications_count: apps.length,
+        latest_status: latestStatus,
+      };
+    });
+  } catch (error: any) {
+    throw new AppError(500, 'DB_ERROR', 'Failed to search institution students: ' + error.message);
+  }
+}
+

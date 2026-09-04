@@ -34,8 +34,17 @@ export async function createCourse(courseData: Partial<CourseItem>): Promise<Cou
   return courseRecord;
 }
 
+function applyCourseSourceFilter(builder: any, source?: string) {
+  if (!source || source.toLowerCase() === 'all') return builder;
+  const s = source.toLowerCase().trim();
+  if (s === 'swayam') return builder.ilike('course_id', 'swayam-%');
+  if (s === 'skill_india' || s === 'skillindia' || s === 'sidh') return builder.ilike('course_id', 'sidh-%');
+  if (s === 'mit') return builder.ilike('course_id', 'mit-%');
+  return builder;
+}
+
 export async function searchCourses(
-  filter?: { query?: string; domain?: string; difficulty?: string; provider?: string },
+  filter?: { query?: string; domain?: string; difficulty?: string; provider?: string; source?: string },
   pagination?: PaginationParams,
 ): Promise<PaginatedResult<CourseItem>> {
   const page = pagination?.page ?? 1;
@@ -43,30 +52,44 @@ export async function searchCourses(
   const offset = (page - 1) * limit;
 
   if (filter?.query?.trim()) {
-    try {
-      const [queryVector] = await embedBatch([filter.query.trim()], 'query');
-      const { data, error } = await supabase.rpc('match_courses', {
-        query_embedding: queryVector,
-        match_threshold: 0.20,
-        match_count: limit,
-      });
+    if (page === 1) {
+      try {
+        const [queryVector] = await embedBatch([filter.query.trim()], 'query');
+        const { data, error } = await supabase.rpc('match_courses', {
+          query_embedding: queryVector,
+          match_threshold: 0.20,
+          match_count: Math.min(100, Math.max(limit * 5, 30)),
+        });
 
-      if (!error && data && data.length > 0) {
-        let items = (data || []).map(mapCourseRow);
-        if (filter?.difficulty && filter.difficulty.toLowerCase() !== 'all') {
-          const targetDiff = filter.difficulty.toLowerCase();
-          items = items.filter((c: CourseItem) => {
-            const d = (c.difficulty || '').toLowerCase();
-            if (targetDiff === 'beginner' || targetDiff === 'novice') {
-              return d === 'beginner' || d === 'novice';
-            }
-            return d === targetDiff;
-          });
+        if (!error && data && data.length > 0) {
+          let items = (data || []).map(mapCourseRow);
+          if (filter?.difficulty && filter.difficulty.toLowerCase() !== 'all') {
+            const targetDiff = filter.difficulty.toLowerCase();
+            items = items.filter((c: CourseItem) => {
+              const d = (c.difficulty || '').toLowerCase();
+              if (targetDiff === 'beginner' || targetDiff === 'novice') {
+                return d === 'beginner' || d === 'novice';
+              }
+              return d === targetDiff;
+            });
+          }
+          if (filter?.source && filter.source.toLowerCase() !== 'all') {
+            const s = filter.source.toLowerCase().trim();
+            items = items.filter((c: CourseItem) => {
+              const cid = (c.course_id || '').toLowerCase();
+              if (s === 'swayam') return cid.startsWith('swayam-');
+              if (s === 'skill_india' || s === 'skillindia' || s === 'sidh') return cid.startsWith('sidh-');
+              if (s === 'mit') return cid.startsWith('mit-');
+              return true;
+            });
+          }
+          if (items.length > 0) {
+            return { items: items.slice(0, limit), total: items.length, page, limit, hasMore: items.length > limit };
+          }
         }
-        return { items, total: items.length, page, limit, hasMore: false };
+      } catch {
+        // Fallback to text search
       }
-    } catch {
-      // Fallback to text search
     }
 
     let textQuery = supabase.from('courses').select('*', { count: 'exact' });
@@ -75,8 +98,14 @@ export async function searchCourses(
 
     if (filter?.domain) textQuery = textQuery.ilike('target_domain', `%${filter.domain.trim()}%`);
     if (filter?.provider) textQuery = textQuery.ilike('provider', `%${filter.provider.trim()}%`);
+    textQuery = applyCourseSourceFilter(textQuery, filter?.source);
     if (filter?.difficulty && filter.difficulty.toLowerCase() !== 'all') {
-      textQuery = textQuery.ilike('difficulty', `%${filter.difficulty.trim()}%`);
+      const diff = filter.difficulty.trim().toLowerCase();
+      if (diff === 'beginner' || diff === 'novice') {
+        textQuery = textQuery.in('difficulty', ['Beginner', 'Novice']);
+      } else {
+        textQuery = textQuery.ilike('difficulty', `%${diff}%`);
+      }
     }
 
     textQuery = textQuery.range(offset, offset + limit - 1).order('created_at', { ascending: false });
@@ -89,10 +118,11 @@ export async function searchCourses(
   let query = supabase.from('courses').select('*', { count: 'exact' });
   if (filter?.domain) query = query.ilike('target_domain', `%${filter.domain.trim()}%`);
   if (filter?.provider) query = query.ilike('provider', `%${filter.provider.trim()}%`);
+  query = applyCourseSourceFilter(query, filter?.source);
   if (filter?.difficulty && filter.difficulty.toLowerCase() !== 'all') {
-    const diff = filter.difficulty.trim();
-    if (diff.toLowerCase() === 'beginner' || diff.toLowerCase() === 'novice') {
-      query = query.or('difficulty.ilike.Beginner,difficulty.ilike.Novice');
+    const diff = filter.difficulty.trim().toLowerCase();
+    if (diff === 'beginner' || diff === 'novice') {
+      query = query.in('difficulty', ['Beginner', 'Novice']);
     } else {
       query = query.ilike('difficulty', `%${diff}%`);
     }

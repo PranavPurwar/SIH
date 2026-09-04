@@ -108,7 +108,9 @@ api.getCourses = (params = {}) => {
   if (params.limit) query.append('limit', String(params.limit));
   if (params.q) query.append('q', params.q);
   if (params.domain) query.append('domain', params.domain);
-  if (params.difficulty) query.append('difficulty', params.difficulty);
+  if (params.difficulty && params.difficulty !== 'all') query.append('difficulty', params.difficulty);
+  if (params.provider) query.append('provider', params.provider);
+  if (params.source && params.source !== 'all') query.append('source', params.source);
   const qs = query.toString() ? `?${query.toString()}` : '';
   return api('GET', `/api/courses${qs}`);
 };
@@ -126,6 +128,43 @@ api.getAssessmentSuites = (params = {}) => {
 api.createAssessmentSuite = (suiteData) => api('POST', '/api/assessments/create', suiteData);
 api.updateAssessmentSuite = (id, suiteData) => api('PUT', `/api/assessments/${encodeURIComponent(id)}`, suiteData);
 api.submitAssessmentSuite = (payload) => api('POST', '/api/assessments/submit', payload);
+
+// Faculty Opportunities & Industrial Training Domain
+api.getFacultyPrograms = (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.type) query.append('type', params.type);
+  if (params.domain) query.append('domain', params.domain);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return api('GET', `/api/faculty/programs${qs}`);
+};
+api.applyFacultyProgram = (payload) => api('POST', '/api/faculty/apply', payload);
+api.getFacultyApplications = (email) => api('GET', `/api/faculty/applications/${encodeURIComponent(email)}`);
+
+// Mentorship & Industry Learning Programs Domain
+api.getLearningPrograms = (params = {}) => {
+  const type = typeof params === 'string' ? params : params.type;
+  const query = new URLSearchParams();
+  if (type && type !== 'All') query.append('type', type);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return api('GET', `/api/learning/programs${qs}`);
+};
+api.createLearningProgram = (payload) => api('POST', '/api/learning/create', payload);
+
+// Institutional Analytics Domain
+api.getInstitutionalAnalytics = (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.institution) query.append('institution', params.institution);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return api('GET', `/api/analytics/institution${qs}`);
+};
+
+api.getInstitutionStudents = (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.q) query.append('q', params.q);
+  if (params.institution) query.append('institution', params.institution);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  return api('GET', `/api/analytics/institution/students${qs}`);
+};
 
 export default api;
 

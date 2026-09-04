@@ -24,7 +24,7 @@ assessmentRouter.get(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const suites = await getAllAssessmentSuites(req.query as any);
-      res.status(200).json(success({ total: suites.length, suites, assessments: suites }));
+      res.status(200).json(success({ total: suites.length, suites }));
     } catch (err) {
       next(err);
     }

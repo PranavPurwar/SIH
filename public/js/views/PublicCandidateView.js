@@ -1,16 +1,26 @@
 import { ref, computed, onMounted } from '../vue.js';
 import RadarChart from '../components/RadarChart.js';
+import TraceabilityMatrix from '../components/TraceabilityMatrix.js';
 import { formatTimeline } from '../utils/formatters.js';
 
 export default {
   name: 'PublicCandidateView',
   components: {
-    RadarChart
+    RadarChart,
+    TraceabilityMatrix
   },
   props: {
     candidateId: {
       type: String,
       required: true
+    },
+    isAuthenticated: {
+      type: Boolean,
+      default: false
+    },
+    authUser: {
+      type: Object,
+      default: null
     }
   },
   emits: ['navigate-home', 'open-login'],
@@ -56,28 +66,23 @@ export default {
 
     function getCertTitle(cert) {
       if (!cert) return 'Verified Credential';
-      if (typeof cert === 'string') return cert;
-      return cert.name || cert.title || cert.course || cert.credential_name || 'Verified Institutional Credential';
+      return cert.name || cert.title || 'Verified Credential';
     }
 
     function getCertIssuer(cert) {
-      if (!cert || typeof cert === 'string') return 'Academic Consortium';
-      return cert.issuer || cert.institution || 'Institutional Evaluation Board';
+      return cert?.issuer || 'Academic Consortium';
     }
 
     function getCertDate(cert) {
-      if (!cert || typeof cert === 'string') return '';
-      return cert.date || (cert.completed_at ? new Date(cert.completed_at).toLocaleDateString() : '');
+      return cert?.issue_date || cert?.date || (cert?.completed_at ? new Date(cert.completed_at).toLocaleDateString() : '');
     }
 
     function getCertScore(cert) {
-      if (!cert || typeof cert === 'string') return null;
-      return cert.score || (cert.score_pct ? `${cert.score_pct}%` : null);
+      return cert?.score || (cert?.score_pct ? `${cert.score_pct}%` : null);
     }
 
     function getCertId(cert) {
-      if (!cert || typeof cert === 'string') return null;
-      return cert.credential_id || cert.id || null;
+      return cert?.credential_id || cert?.id || null;
     }
 
     function copyCredentialId(id) {
@@ -146,7 +151,7 @@ export default {
             <a 
               :href="'/api/students/' + (student?.id || candidateId) + '/resume'"
               target="_blank"
-              class="btn-primary px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
+              class="btn-secondary px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
             >
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -162,7 +167,22 @@ export default {
               </svg>
               <span>{{ copiedLink ? 'Link Copied!' : 'Share' }}</span>
             </button>
+
+            <!-- When authenticated, show back to dashboard/pipeline button -->
             <button 
+              v-if="isAuthenticated"
+              @click="$emit('navigate-home')"
+              class="btn-primary px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+              </svg>
+              <span>← Back to {{ authUser?.role === 'recruiter' ? 'Candidates Pipeline' : 'Dashboard' }}</span>
+            </button>
+
+            <!-- When unauthenticated, show Sign In button -->
+            <button 
+              v-else
               @click="$emit('open-login')"
               class="btn-secondary px-3.5 py-1.5 rounded-lg text-xs font-medium"
             >
@@ -300,6 +320,16 @@ export default {
                   :class="activeSection === 'projects' ? 'bg-[#F5F3FF] text-[#581C87] border border-[#DDD6FE] font-medium shadow-2xs' : 'text-brand-muted hover:text-brand-text'"
                 >
                   Engineering Projects ({{ allProjects.length }})
+                </button>
+                <button 
+                  @click="activeSection = 'traceability'"
+                  class="px-4 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-1.5"
+                  :class="activeSection === 'traceability' ? 'bg-[#F5F3FF] text-[#581C87] border border-[#DDD6FE] font-medium shadow-2xs' : 'text-brand-muted hover:text-brand-text'"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                  </svg>
+                  <span>Evidence Traceability Matrix</span>
                 </button>
               </div>
             </div>
@@ -467,6 +497,11 @@ export default {
               <div v-else class="text-center py-8 text-brand-muted text-sm italic">
                 No projects recorded.
               </div>
+            </div>
+
+            <!-- 4. Evidence Traceability Matrix Tab -->
+            <div v-if="activeSection === 'traceability'" class="space-y-4">
+              <traceability-matrix :candidate="student"></traceability-matrix>
             </div>
           </div>
         </template>

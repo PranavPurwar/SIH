@@ -1,3 +1,4 @@
+import { ref, computed, watch } from '../../vue.js';
 import { decodeHtml } from '../../utils/formatters.js';
 
 export default {
@@ -18,20 +19,99 @@ export default {
   },
   emits: ['apply-job'],
   setup(props) {
+    const currentPage = ref(1);
+    // Page size of 3 positions per page for clean, focused viewing and easy page switching
+    const pageSize = ref(3);
+
+    const totalPages = computed(() => {
+      const total = props.jobs?.length || 0;
+      return Math.ceil(total / pageSize.value) || 1;
+    });
+
+    const paginatedJobs = computed(() => {
+      const list = props.jobs || [];
+      const start = (currentPage.value - 1) * pageSize.value;
+      return list.slice(start, start + pageSize.value);
+    });
+
+    const startItem = computed(() => {
+      if (!props.jobs?.length) return 0;
+      return (currentPage.value - 1) * pageSize.value + 1;
+    });
+
+    const endItem = computed(() => {
+      if (!props.jobs?.length) return 0;
+      return Math.min(currentPage.value * pageSize.value, props.jobs.length);
+    });
+
+    // Google-style visible page buttons
+    const visiblePages = computed(() => {
+      const current = currentPage.value;
+      const total = totalPages.value;
+      if (total <= 10) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+      }
+      const pages = [];
+      let start = Math.max(1, current - 4);
+      let end = Math.min(total, current + 4);
+      if (current <= 5) {
+        start = 1;
+        end = Math.min(total, 10);
+      } else if (current + 4 >= total) {
+        start = Math.max(1, total - 9);
+        end = total;
+      }
+      if (start > 1) {
+        pages.push(1);
+        if (start > 2) pages.push('...');
+      }
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (end < total) {
+        if (end < total - 1) pages.push('...');
+        pages.push(total);
+      }
+      return pages;
+    });
+
+    watch(() => props.jobs?.length, () => {
+      currentPage.value = 1;
+    });
+
+    function onPage(p) {
+      if (p < 1 || p > totalPages.value || p === currentPage.value) return;
+      currentPage.value = p;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     function isJobApplied(jobId) {
       return props.appliedJobIds.includes(jobId);
     }
 
     return {
+      currentPage,
+      pageSize,
+      totalPages,
+      paginatedJobs,
+      startItem,
+      endItem,
+      visiblePages,
+      onPage,
       decodeHtml,
       isJobApplied
     };
   },
   template: `
     <div class="space-y-6">
-      <header class="mb-6">
-        <h1 class="font-serif text-3xl text-brand-text mb-2">Available Positions</h1>
-        <p class="text-brand-muted text-sm">Ranked by competency alignment with your evaluated skills and portfolio.</p>
+      <header class="mb-6 flex flex-wrap justify-between items-end gap-4">
+        <div>
+          <h1 class="font-serif text-3xl text-brand-text mb-2">Available Positions</h1>
+          <p class="text-brand-muted text-sm">Ranked by competency alignment with your evaluated skills and portfolio.</p>
+        </div>
+        <div v-if="jobs?.length > 0" class="text-xs font-mono text-brand-muted bg-brand-surface px-3 py-1.5 rounded-lg border border-brand-border">
+          {{ jobs.length }} Matched Positions Total
+        </div>
       </header>
 
       <div v-if="loading" class="text-center py-16 text-sm text-brand-muted">
@@ -44,7 +124,7 @@ export default {
 
       <div v-else class="space-y-6">
         <div 
-          v-for="m in jobs" 
+          v-for="m in paginatedJobs" 
           :key="m.job_id"
           class="card p-6 transition-colors hover:border-[#DDD6FE] space-y-4"
         >
@@ -85,7 +165,10 @@ export default {
           <!-- Recommended Courses for Gaps -->
           <div v-if="m.recommended_courses?.length" class="mb-4 p-4 rounded-xl bg-brand-surface border border-brand-border space-y-2">
             <div class="text-xs font-medium text-brand-text flex items-center gap-1.5">
-              <span>📚 Recommended Coursework for this Role:</span>
+              <svg class="w-3.5 h-3.5 text-[#581C87]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+              </svg>
+              <span>Recommended Coursework for this Role:</span>
             </div>
             <div class="space-y-2.5 pt-1">
               <div v-for="c in m.recommended_courses" :key="c.course_id || c.title" class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs border-t border-brand-border/60 pt-2 first:border-0 first:pt-0">
@@ -117,8 +200,54 @@ export default {
             </span>
           </div>
         </div>
+
+        <!-- Google-Style Pagination Bar (Always visible when positions exist) -->
+        <div v-if="jobs.length > 0" class="mt-10 pt-6 border-t border-brand-border flex flex-col items-center gap-4">
+          <!-- Numbered Navigation Controls -->
+          <div class="flex items-center gap-1 sm:gap-2 flex-wrap justify-center select-none">
+            <!-- Previous Button -->
+            <button 
+              @click="onPage(currentPage - 1)" 
+              :disabled="currentPage <= 1" 
+              class="px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+              :class="currentPage <= 1 ? 'opacity-40 cursor-not-allowed bg-gray-50 border-brand-border text-brand-muted' : 'bg-white hover:bg-[#F5F3FF] hover:border-[#DDD6FE] text-[#581C87] border-brand-border font-semibold shadow-2xs cursor-pointer'"
+              title="Go to previous page"
+            >
+              <span>‹ Previous</span>
+            </button>
+
+            <!-- Numbered Page Buttons (1 2 3 4 5...) -->
+            <template v-for="(p, idx) in visiblePages" :key="idx">
+              <span v-if="p === '...'" class="px-2 py-1 text-sm text-brand-muted select-none font-mono">…</span>
+              <button 
+                v-else
+                @click="onPage(p)"
+                :class="p === currentPage ? 'bg-[#581C87] text-white border-[#581C87] font-semibold shadow-sm scale-105' : 'bg-white text-brand-text hover:bg-[#F5F3FF] hover:text-[#581C87] hover:border-[#DDD6FE] border-brand-border'"
+                class="w-9 h-9 rounded-lg text-xs font-mono font-medium border flex items-center justify-center transition-all cursor-pointer"
+              >
+                {{ p }}
+              </button>
+            </template>
+
+            <!-- Next Button -->
+            <button 
+              @click="onPage(currentPage + 1)" 
+              :disabled="currentPage >= totalPages" 
+              class="px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+              :class="currentPage >= totalPages ? 'opacity-40 cursor-not-allowed bg-gray-50 border-brand-border text-brand-muted' : 'bg-white hover:bg-[#F5F3FF] hover:border-[#DDD6FE] text-[#581C87] border-brand-border font-semibold shadow-2xs cursor-pointer'"
+              title="Go to next page"
+            >
+              <span>Next ›</span>
+            </button>
+          </div>
+
+          <!-- Position Range Summary -->
+          <div class="text-xs text-brand-muted font-mono">
+            Showing <span class="font-semibold text-brand-text">{{ startItem }}–{{ endItem }}</span> of <span class="font-semibold text-brand-text">{{ jobs.length }}</span> positions
+            <span class="ml-1.5">(Page {{ currentPage }} of {{ totalPages }})</span>
+          </div>
+        </div>
       </div>
     </div>
   `
 };
-

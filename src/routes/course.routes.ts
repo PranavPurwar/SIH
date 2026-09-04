@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { createCourse, searchCourses, getRecommendedCoursesForSkills } from '../services/course.service.js';
-import { scrapeMitOcwCourses } from '../services/scraper.service.js';
+import { scrape, scrapeMitOcwCourses, scrapeSwayamCourses, scrapeSkillIndiaDigital } from '../services/scraper.service.js';
 import { supabase } from '../db/connection.js';
 import { validate } from '../middleware/validate.js';
 import { createCourseSchema, courseSearchSchema, scrapeRequestSchema } from '../schemas/course.schema.js';
@@ -33,11 +33,23 @@ courseRouter.post(
   validate(scrapeRequestSchema, 'body'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const scraped = await scrapeMitOcwCourses(req.body);
+      const { source = 'all', department, limit = 50, concurrency = 8, swayamLimit, skillIndiaLimit } = req.body;
+      const sources = source === 'all' ? ['swayam', 'skill_india', 'mit'] : [source];
+      const stats = await scrape({
+        sources: sources as any,
+        swayamLimit: swayamLimit || limit,
+        skillIndiaLimit: skillIndiaLimit || limit,
+        mitLimit: limit,
+        mitDepartment: department,
+      });
+
       res.status(200).json(success({
-        message: `Scraped ${scraped.length} courses from MIT OCW`,
-        count: scraped.length,
-        courses: scraped,
+        message: `Scrape completed for sources: ${sources.join(', ')}`,
+        total: stats.total,
+        swayamCount: stats.swayam.length,
+        skillIndiaCount: stats.skillIndia.length,
+        mitCount: stats.mit.length,
+        courses: [...stats.swayam, ...stats.skillIndia, ...stats.mit],
       }));
     } catch (err) {
       next(err);
@@ -51,10 +63,10 @@ courseRouter.get(
   validate(courseSearchSchema, 'query'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { q, search, query, domain, difficulty, provider, page, limit } = req.query as any;
+      const { q, search, query, domain, difficulty, provider, source, page, limit } = req.query as any;
       const searchQuery = q || search || query;
       const result = await searchCourses(
-        { query: searchQuery, domain, difficulty, provider },
+        { query: searchQuery, domain, difficulty, provider, source },
         { page: Number(page) || 1, limit: Number(limit) || 25 },
       );
       res.status(200).json(paginated(result.items, result.page, result.limit, result.total));

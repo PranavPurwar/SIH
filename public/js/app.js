@@ -14,6 +14,10 @@ import RecruiterJobsView from './views/recruiter/RecruiterJobsView.js';
 import RecruiterCandidatesView from './views/recruiter/RecruiterCandidatesView.js';
 import FacultyCoursesView from './views/faculty/FacultyCoursesView.js';
 import FacultyAssessmentsView from './views/faculty/FacultyAssessmentsView.js';
+import FacultyOpportunitiesView from './views/faculty/FacultyOpportunitiesView.js';
+import MentorshipHubView from './views/shared/MentorshipHubView.js';
+import InstitutionalAnalyticsView from './views/faculty/InstitutionalAnalyticsView.js';
+import TraceabilityMatrix from './components/TraceabilityMatrix.js';
 
 const app = createApp({
   name: 'App',
@@ -30,13 +34,18 @@ const app = createApp({
     RecruiterJobsView,
     RecruiterCandidatesView,
     FacultyCoursesView,
-    FacultyAssessmentsView
+    FacultyAssessmentsView,
+    FacultyOpportunitiesView,
+    MentorshipHubView,
+    InstitutionalAnalyticsView,
+    TraceabilityMatrix
   },
   setup() {
     const isAuthenticated = ref(!!getAuthToken());
     const authUser = ref(JSON.parse(localStorage.getItem('user') || 'null'));
     const publicCandidateId = ref(null);
-    const activeTab = ref('jobs');
+    const initialRole = JSON.parse(localStorage.getItem('user') || '{}')?.role;
+    const activeTab = ref(initialRole === 'faculty' ? 'faculty-programs' : 'jobs');
 
     const primaryNavTabs = computed(() => {
       const role = authUser.value?.role || 'student';
@@ -48,14 +57,15 @@ const app = createApp({
         ];
       } else if (role === 'faculty') {
         return [
-          { id: 'courses', name: 'Courseware Modules' },
-          { id: 'quiz', name: 'Assessment Suites' },
-          { id: 'profile', name: 'Institution Profile' }
+          { id: 'faculty-programs', name: 'Faculty Opportunities' },
+          { id: 'analytics', name: 'Institutional Analytics' },
+          { id: 'mentorship', name: 'Mentorship & Programs' }
         ];
       }
       return [
         { id: 'jobs', name: 'Positions' },
         { id: 'applications', name: 'Applications' },
+        { id: 'mentorship', name: 'Mentorship & Programs' },
         { id: 'courses', name: 'Courseware' },
         { id: 'quiz', name: 'Assessments' },
         { id: 'profile', name: 'Profile' }
@@ -81,6 +91,7 @@ const app = createApp({
     const totalCoursePages = ref(1);
     const courseQuery = ref('');
     const selectedCourseDifficulty = ref('all');
+    const selectedCourseSource = ref('all');
 
     const assessmentSuites = ref([]);
     const assessmentsLoading = ref(false);
@@ -111,8 +122,12 @@ const app = createApp({
         activeTab.value = 'quiz';
       } else if (path === '/profile') {
         activeTab.value = 'profile';
-      } else if (path === '/faculty') {
-        activeTab.value = 'courses';
+      } else if (path === '/faculty' || path === '/faculty-programs') {
+        activeTab.value = 'faculty-programs';
+      } else if (path === '/analytics') {
+        activeTab.value = 'analytics';
+      } else if (path === '/mentorship') {
+        activeTab.value = 'mentorship';
       } else if (path === '/recruiter') {
         activeTab.value = 'applications';
       }
@@ -142,9 +157,8 @@ const app = createApp({
       if (!isAuthenticated.value) return;
       try {
         const res = await api.getProfile(studentId.value);
-        const payload = res?.data !== undefined ? res.data : res;
-        if (payload) {
-          const profile = payload.student || payload;
+        if (res?.student) {
+          const profile = res.student;
           student.id = profile.id;
           student.name = profile.name;
           student.email = profile.email;
@@ -157,7 +171,7 @@ const app = createApp({
           student.has_resume = profile.has_resume;
           student.resume_url = profile.resume_url;
 
-          radarMetrics.value = payload.radar_chart || [];
+          radarMetrics.value = res.radar_chart || [];
           certifications.value = profile.certifications || [];
         }
       } catch (err) {
@@ -170,10 +184,7 @@ const app = createApp({
       jobsLoading.value = true;
       try {
         const res = await api.getJobMatches(studentId.value);
-        const payload = res?.data !== undefined ? res.data : res;
-        if (payload) {
-          jobMatches.value = payload.matches || (Array.isArray(payload) ? payload : []);
-        }
+        jobMatches.value = res.matches || [];
       } catch (err) {
         console.error('Failed to load job matches:', err);
       } finally {
@@ -185,35 +196,31 @@ const app = createApp({
       if (!isAuthenticated.value) return;
       try {
         const res = await api.getStudentApplications(studentId.value);
-        const payload = res?.data !== undefined ? res.data : res;
-        if (payload) {
-          studentApplications.value = payload.applications || (Array.isArray(payload) ? payload : []);
-        }
+        studentApplications.value = res.applications || [];
       } catch (err) {
         console.error('Failed to load applications:', err);
       }
     }
 
-    async function loadCourses(page = 1, query = courseQuery.value, difficulty = selectedCourseDifficulty.value) {
+    async function loadCourses(page = 1, query = courseQuery.value, difficulty = selectedCourseDifficulty.value, source = selectedCourseSource.value) {
       coursesLoading.value = true;
       coursePage.value = page;
       if (query !== undefined) courseQuery.value = query;
       if (difficulty !== undefined) selectedCourseDifficulty.value = difficulty;
+      if (source !== undefined) selectedCourseSource.value = source;
 
       try {
         const res = await api.getCourses({
           page,
           limit: 12,
           q: courseQuery.value,
-          difficulty: selectedCourseDifficulty.value
+          difficulty: selectedCourseDifficulty.value,
+          source: selectedCourseSource.value
         });
 
-        const payload = res?.data !== undefined ? res.data : res;
-        if (payload) {
-          courses.value = payload.items || payload.courses || (Array.isArray(payload) ? payload : []);
-          totalCourses.value = payload.total || courses.value.length || 0;
-          totalCoursePages.value = Math.ceil(totalCourses.value / 12) || 1;
-        }
+        courses.value = res.data;
+        totalCourses.value = res.meta.total;
+        totalCoursePages.value = Math.ceil(res.meta.total / (res.meta.limit || 12)) || 1;
       } catch (err) {
         console.error('Failed to load courses:', err);
       } finally {
@@ -221,14 +228,34 @@ const app = createApp({
       }
     }
 
+    function handleCourseSearch(query) {
+      loadCourses(1, query, selectedCourseDifficulty.value, selectedCourseSource.value);
+    }
+
+    function handleCourseDifficulty(diff) {
+      loadCourses(1, courseQuery.value, diff, selectedCourseSource.value);
+    }
+
+    function handleCourseSource(src) {
+      loadCourses(1, courseQuery.value, selectedCourseDifficulty.value, src);
+    }
+
+    function handleCoursePage(p) {
+      loadCourses(p, courseQuery.value, selectedCourseDifficulty.value, selectedCourseSource.value);
+    }
+
+    function handleCourseReset() {
+      courseQuery.value = '';
+      selectedCourseDifficulty.value = 'all';
+      selectedCourseSource.value = 'all';
+      loadCourses(1, '', 'all', 'all');
+    }
+
     async function loadAssessments() {
       assessmentsLoading.value = true;
       try {
         const res = await api.getAssessmentSuites();
-        const payload = res?.data !== undefined ? res.data : res;
-        if (payload) {
-          assessmentSuites.value = payload.suites || payload.assessments || (Array.isArray(payload) ? payload : []);
-        }
+        assessmentSuites.value = res.suites || [];
       } catch (err) {
         console.error('Failed to load assessments:', err);
       } finally {
@@ -240,10 +267,7 @@ const app = createApp({
       recruiterLoading.value = true;
       try {
         const res = await api.getJobs();
-        const payload = res?.data !== undefined ? res.data : res;
-        if (payload) {
-          recruiterJobs.value = payload.jobs || (Array.isArray(payload) ? payload : []);
-        }
+        recruiterJobs.value = res.jobs || [];
       } catch (err) {
         console.error('Failed to load recruiter jobs:', err);
       } finally {
@@ -258,14 +282,8 @@ const app = createApp({
           api.getAllApplications(),
           api.getJobs()
         ]);
-        const appPayload = appRes?.data !== undefined ? appRes.data : appRes;
-        const jobPayload = jobRes?.data !== undefined ? jobRes.data : jobRes;
-        if (appPayload) {
-          recruiterCandidates.value = appPayload.applications || (Array.isArray(appPayload) ? appPayload : []);
-        }
-        if (jobPayload) {
-          recruiterJobs.value = jobPayload.jobs || (Array.isArray(jobPayload) ? jobPayload : []);
-        }
+        recruiterCandidates.value = appRes.applications || [];
+        recruiterJobs.value = jobRes.jobs || [];
       } catch (err) {
         console.error('Failed to load recruiter pipeline:', err);
       } finally {
@@ -284,7 +302,7 @@ const app = createApp({
           if (res.user.role === 'recruiter') {
             setTab('jobs');
           } else if (res.user.role === 'faculty') {
-            setTab('courses');
+            setTab('faculty-programs');
           } else {
             setTab('jobs');
           }
@@ -305,7 +323,7 @@ const app = createApp({
           if (res.user.role === 'recruiter') {
             setTab('jobs');
           } else if (res.user.role === 'faculty') {
-            setTab('courses');
+            setTab('faculty-programs');
           } else {
             setTab('jobs');
           }
@@ -326,7 +344,7 @@ const app = createApp({
       isUploadingResume.value = true;
       try {
         const res = await api.uploadResume(file, studentId.value);
-        if (res && res.data) {
+        if (res) {
           await loadStudentProfile();
           await loadJobMatches();
           alert('Resume extracted and competency radar updated successfully!');
@@ -402,7 +420,10 @@ const app = createApp({
         });
         await loadStudentProfile();
         await loadJobMatches();
-        return res.data;
+        if (typeof submissionPayload.callback === 'function') {
+          submissionPayload.callback(res);
+        }
+        return res;
       } catch (err) {
         alert('Assessment evaluation failed: ' + err.message);
         throw err;
@@ -461,12 +482,30 @@ const app = createApp({
 
     function viewCandidatePublic(candId) {
       publicCandidateId.value = candId;
+      if (window.history && window.history.pushState) {
+        window.history.pushState({}, '', `/candidate/${candId}`);
+      }
     }
 
     function closePublicCandidate() {
       publicCandidateId.value = null;
+      const role = authUser.value?.role;
+      if (role === 'recruiter') {
+        activeTab.value = 'applications';
+        loadRecruiterPipeline();
+      }
+      const targetRoute = role === 'recruiter' ? '/recruiter' : (activeTab.value === 'quiz' ? '/assessments' : `/${activeTab.value || 'jobs'}`);
       if (window.history && window.history.pushState) {
-        window.history.pushState({}, '', `/${activeTab.value === 'quiz' ? 'assessments' : activeTab.value}`);
+        window.history.pushState({}, '', targetRoute);
+      }
+    }
+
+    function handleCandidateViewOpenLogin() {
+      publicCandidateId.value = null;
+      if (!isAuthenticated.value) {
+        if (window.history && window.history.pushState) {
+          window.history.pushState({}, '', '/login');
+        }
       }
     }
 
@@ -512,6 +551,7 @@ const app = createApp({
       totalCourses,
       totalCoursePages,
       selectedCourseDifficulty,
+      selectedCourseSource,
       assessmentSuites,
       assessmentsLoading,
       showPostModal,
@@ -522,6 +562,11 @@ const app = createApp({
       handleViewJobCandidates,
       setTab,
       loadCourses,
+      handleCourseSearch,
+      handleCourseDifficulty,
+      handleCourseSource,
+      handleCoursePage,
+      handleCourseReset,
       loadAssessments,
       handleLogin,
       handleRegister,
@@ -539,7 +584,8 @@ const app = createApp({
       handleCreateAssessmentSuite,
       handleUpdateAssessmentSuite,
       viewCandidatePublic,
-      closePublicCandidate
+      closePublicCandidate,
+      handleCandidateViewOpenLogin
     };
   },
   template: `
@@ -547,8 +593,10 @@ const app = createApp({
       <public-candidate-view 
         v-if="publicCandidateId"
         :candidate-id="publicCandidateId"
+        :is-authenticated="isAuthenticated"
+        :auth-user="authUser"
         @navigate-home="closePublicCandidate"
-        @open-login="() => { publicCandidateId = null; isAuthenticated = false; }"
+        @open-login="handleCandidateViewOpenLogin"
       ></public-candidate-view>
 
       <login-view 
@@ -589,19 +637,40 @@ const app = createApp({
           </template>
 
           <template v-else-if="authUser?.role === 'faculty'">
+            <faculty-opportunities-view 
+              v-if="activeTab === 'faculty-programs'"
+              :faculty-user="authUser"
+            ></faculty-opportunities-view>
+
+            <institutional-analytics-view 
+              v-if="activeTab === 'analytics'"
+              :faculty-user="authUser"
+              @view-candidate="viewCandidatePublic"
+            ></institutional-analytics-view>
+
+            <mentorship-hub-view 
+              v-if="activeTab === 'mentorship'"
+              user-role="faculty"
+              :current-user="authUser"
+            ></mentorship-hub-view>
+
             <faculty-courses-view 
               v-if="activeTab === 'courses'"
+              :faculty-user="authUser"
               :courses="courses"
               :loading="coursesLoading"
               :current-page="coursePage"
               :total-pages="totalCoursePages"
               :total-courses="totalCourses"
               :selected-difficulty="selectedCourseDifficulty"
+              :selected-source="selectedCourseSource"
               @create-course="handleCreateCourse"
               @refresh-courses="loadCourses(1)"
-              @search="loadCourses(1, $event, undefined)"
-              @change-page="loadCourses($event, undefined, undefined)"
-              @filter-difficulty="loadCourses(1, undefined, $event)"
+              @search="handleCourseSearch"
+              @change-page="handleCoursePage"
+              @filter-difficulty="handleCourseDifficulty"
+              @filter-source="handleCourseSource"
+              @reset-filters="handleCourseReset"
             ></faculty-courses-view>
 
             <faculty-assessments-view 
@@ -628,16 +697,26 @@ const app = createApp({
               :applications="studentApplications"
             ></applications-view>
 
+            <mentorship-hub-view 
+              v-if="activeTab === 'mentorship'"
+              user-role="student"
+              :current-user="authUser"
+            ></mentorship-hub-view>
+
             <courses-view 
               v-if="activeTab === 'courses'"
               :courses="courses"
               :loading="coursesLoading"
               :current-page="coursePage"
               :total-pages="totalCoursePages"
+              :total-courses="totalCourses"
               :selected-difficulty="selectedCourseDifficulty"
-              @search="loadCourses(1, $event, undefined)"
-              @change-page="loadCourses($event, undefined, undefined)"
-              @filter-difficulty="loadCourses(1, undefined, $event)"
+              :selected-source="selectedCourseSource"
+              @search="handleCourseSearch"
+              @change-page="handleCoursePage"
+              @filter-difficulty="handleCourseDifficulty"
+              @filter-source="handleCourseSource"
+              @reset-filters="handleCourseReset"
             ></courses-view>
 
             <assessment-view 

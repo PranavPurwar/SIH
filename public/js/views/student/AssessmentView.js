@@ -36,23 +36,12 @@ export default {
 
     function getAttempt(suite) {
       if (!suite) return null;
-      const list = (props.student && Array.isArray(props.student.assessments) && props.student.assessments.length > 0)
-        ? props.student.assessments
-        : (Array.isArray(props.studentAssessments) ? props.studentAssessments : []);
-      
-      const targetId = String(suite.assessment_id || '').toLowerCase();
-      const targetCode = String(suite.code || '').toLowerCase();
-      const targetTitle = String(suite.title || '').toLowerCase();
-
-      return list.find(a => {
-        const aId = String(a.assessment_id || '').toLowerCase();
-        const aCode = String(a.code || '').toLowerCase();
-        const aTitle = String(a.title || '').toLowerCase();
-
-        return (aId && targetId && aId === targetId) ||
-               (aCode && targetCode && aCode === targetCode) ||
-               (aTitle && targetTitle && aTitle === targetTitle);
-      }) || null;
+      const list = props.student?.assessments || props.studentAssessments || [];
+      return list.find(a => 
+        a.assessment_id === suite.assessment_id || 
+        a.code === suite.code || 
+        a.title === suite.title
+      ) || null;
     }
 
     const availableRoles = computed(() => {

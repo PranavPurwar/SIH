@@ -9,7 +9,8 @@ import { getUniqueUserId, slugify } from '../lib/id-generator.js';
 import { validate } from '../middleware/validate.js';
 import { resumeUploadSchema, studentIdParamSchema } from '../schemas/student.schema.js';
 import { success } from '../lib/response.js';
-import { NotFoundError } from '../lib/errors.js';
+import { NotFoundError, ForbiddenError } from '../lib/errors.js';
+import jwt from 'jsonwebtoken';
 import { createChildLogger } from '../lib/logger.js';
 import type { ProjectItem } from '../types/index.js';
 
@@ -534,6 +535,28 @@ studentRouter.get(
 
       if (error || !student) {
         throw new NotFoundError(`Student ${id} not found`);
+      }
+
+      // Institutional access guard: faculty shall not be given access outside their institution's students' data
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        try {
+          const token = authHeader.slice(7).trim();
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'skillbridge-jwt-secret-key-2026') as any;
+          if (decoded && decoded.role === 'faculty') {
+            const facultyInst = decoded.institution_or_company || 'MIT';
+            const instKeyword = facultyInst.includes('MIT') ? 'MIT' :
+                                facultyInst.includes('IIT Delhi') ? 'IIT Delhi' :
+                                facultyInst.includes('IIT Bombay') ? 'IIT Bombay' :
+                                facultyInst.includes('Stanford') ? 'Stanford' : facultyInst;
+            const studentInst = (student.institution || student.degree || '').toLowerCase();
+            if (!studentInst.includes(instKeyword.toLowerCase())) {
+              throw new ForbiddenError(`Access restricted: Candidate belongs to another institution and is outside your institutional scope (${facultyInst}).`);
+            }
+          }
+        } catch (authErr: any) {
+          if (authErr instanceof ForbiddenError) throw authErr;
+        }
       }
 
       res.status(200).json(success({

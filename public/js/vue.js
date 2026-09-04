@@ -11,4 +11,6 @@ export const computed = v.computed;
 export const watch = v.watch;
 export const onMounted = v.onMounted;
 export const onUnmounted = v.onUnmounted;
+export const onBeforeUnmount = v.onBeforeUnmount;
 export const nextTick = v.nextTick;
+

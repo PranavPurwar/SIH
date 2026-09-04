@@ -70,12 +70,14 @@ export async function getAllApplications(): Promise<ApplicationRecord[]> {
         a.id, a.student_id, a.job_id, a.match_pct, a.status, a.notes, a.applied_at, a.updated_at,
         j.title as job_title,
         j.company as company,
+        j.required_skills as required_skills,
         json_build_object(
           'job_id', j.job_id,
           'title', j.title,
           'company', j.company,
           'stipend', j.stipend,
-          'eligibility', j.eligibility
+          'eligibility', j.eligibility,
+          'required_skills', j.required_skills
         ) as job,
         json_build_object(
           'id', s.id,
@@ -83,7 +85,10 @@ export async function getAllApplications(): Promise<ApplicationRecord[]> {
           'email', s.email,
           'degree', s.degree,
           'parsed_skills', s.parsed_skills,
-          'evaluated_skills', s.evaluated_skills
+          'evaluated_skills', s.evaluated_skills,
+          'projects', s.projects,
+          'certifications', s.certifications,
+          'assessments', s.assessments
         ) as student
       FROM applications a
       LEFT JOIN jobs j ON a.job_id = j.job_id
@@ -102,15 +107,22 @@ export async function getJobApplicants(jobId: string): Promise<ApplicationRecord
     const query = `
       SELECT 
         a.id, a.student_id, a.job_id, a.match_pct, a.status, a.notes, a.applied_at, a.updated_at,
+        j.title as job_title,
+        j.company as company,
+        j.required_skills as required_skills,
         json_build_object(
           'id', s.id,
           'name', s.name,
           'email', s.email,
           'degree', s.degree,
           'parsed_skills', s.parsed_skills,
-          'evaluated_skills', s.evaluated_skills
+          'evaluated_skills', s.evaluated_skills,
+          'projects', s.projects,
+          'certifications', s.certifications,
+          'assessments', s.assessments
         ) as student
       FROM applications a
+      LEFT JOIN jobs j ON a.job_id = j.job_id
       LEFT JOIN students s ON a.student_id = s.id
       WHERE a.job_id = $1
       ORDER BY a.match_pct DESC;

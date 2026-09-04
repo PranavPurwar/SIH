@@ -81,8 +81,8 @@ export default {
       editingProjectIndex.value = idx;
       projectForm.title = proj.title || '';
       projectForm.category = proj.category || 'Engineering';
-      projectForm.url = proj.url || proj.project_url || '';
-      projectForm.tools_used = Array.isArray(proj.tools_used) ? proj.tools_used.join(', ') : (proj.tools_used || '');
+      projectForm.url = proj.url || '';
+      projectForm.tools_used = Array.isArray(proj.tools_used) ? proj.tools_used.join(', ') : '';
       projectForm.description = proj.description || '';
       projectForm.start_date = proj.start_date || '';
       projectForm.end_date = proj.end_date || '';
@@ -144,17 +144,7 @@ export default {
     }
 
     const allCertifications = computed(() => {
-      const fromStudent = props.student?.certifications || [];
-      const fromProps = props.certifications || [];
-      const combined = [...fromStudent];
-
-      for (const item of fromProps) {
-        const title = getCertTitle(item);
-        if (!combined.some(c => getCertTitle(c) === title)) {
-          combined.push(item);
-        }
-      }
-      return combined;
+      return props.student?.certifications || props.certifications || [];
     });
 
     const allAssessments = computed(() => {
@@ -163,28 +153,23 @@ export default {
 
     function getCertTitle(cert) {
       if (!cert) return 'Verified Credential';
-      if (typeof cert === 'string') return cert;
-      return cert.name || cert.title || cert.course || cert.credential_name || 'Verified Institutional Credential';
+      return cert.name || cert.title || 'Verified Credential';
     }
 
     function getCertIssuer(cert) {
-      if (!cert || typeof cert === 'string') return 'Academic Consortium';
-      return cert.issuer || cert.institution || 'Institutional Evaluation Board';
+      return cert?.issuer || 'Academic Consortium';
     }
 
     function getCertDate(cert) {
-      if (!cert || typeof cert === 'string') return '';
-      return cert.date || (cert.completed_at ? new Date(cert.completed_at).toLocaleDateString() : '');
+      return cert?.issue_date || cert?.date || (cert?.completed_at ? new Date(cert.completed_at).toLocaleDateString() : '');
     }
 
     function getCertScore(cert) {
-      if (!cert || typeof cert === 'string') return null;
-      return cert.score || (cert.score_pct ? `${cert.score_pct}%` : null);
+      return cert?.score || (cert?.score_pct ? `${cert.score_pct}%` : null);
     }
 
     function getCertId(cert) {
-      if (!cert || typeof cert === 'string') return null;
-      return cert.credential_id || cert.id || null;
+      return cert?.credential_id || cert?.id || null;
     }
 
     function copyCredentialId(id) {

@@ -1,9 +1,13 @@
-import { ref, reactive } from '../../vue.js';
+import { ref, reactive, computed } from '../../vue.js';
 import { decodeHtml } from '../../utils/formatters.js';
 
 export default {
   name: 'FacultyCoursesView',
   props: {
+    facultyUser: {
+      type: Object,
+      default: () => ({})
+    },
     courses: {
       type: Array,
       default: () => []
@@ -27,12 +31,23 @@ export default {
     selectedDifficulty: {
       type: String,
       default: 'all'
+    },
+    selectedSource: {
+      type: String,
+      default: 'all'
     }
   },
-  emits: ['create-course', 'refresh-courses', 'search', 'change-page', 'filter-difficulty'],
+  emits: ['create-course', 'refresh-courses', 'search', 'change-page', 'filter-difficulty', 'filter-source', 'reset-filters'],
   setup(props, { emit }) {
     const showModal = ref(false);
     const searchQuery = ref('');
+    const jumpPageInput = ref('');
+    const sourceOptions = [
+      { id: 'all', label: 'All Sources' },
+      { id: 'swayam', label: 'SWAYAM / NPTEL' },
+      { id: 'skill_india', label: 'Skill India Digital' },
+      { id: 'mit', label: 'MIT OpenCourseWare' }
+    ];
     const difficultyOptions = [
       { id: 'all', label: 'All Levels' },
       { id: 'Beginner', label: 'Beginner' },
@@ -40,9 +55,56 @@ export default {
       { id: 'Advanced', label: 'Advanced' }
     ];
 
+    // Google-style 10-page sliding window
+    const visiblePages = computed(() => {
+      const current = props.currentPage || 1;
+      const total = props.totalPages || 1;
+      if (total <= 10) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+      }
+      
+      let start = Math.max(1, current - 4);
+      let end = Math.min(total, current + 4);
+      
+      if (current <= 5) {
+        start = 1;
+        end = Math.min(total, 10);
+      } else if (current + 4 >= total) {
+        start = Math.max(1, total - 9);
+        end = total;
+      }
+      
+      const pages = [];
+      if (start > 1) {
+        pages.push(1);
+        if (start > 2) pages.push('...');
+      }
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (end < total) {
+        if (end < total - 1) pages.push('...');
+        pages.push(total);
+      }
+      return pages;
+    });
+
+    const startItem = computed(() => {
+      if (!props.courses?.length) return 0;
+      return (props.currentPage - 1) * 12 + 1;
+    });
+
+    const endItem = computed(() => {
+      if (!props.courses?.length) return 0;
+      if (props.totalCourses > 0) {
+        return Math.min(props.currentPage * 12, props.totalCourses);
+      }
+      return (props.currentPage - 1) * 12 + props.courses.length;
+    });
+
     const form = reactive({
       title: '',
-      provider: 'MIT Department of Electrical Engineering & Computer Science',
+      provider: props.facultyUser?.institution_or_company || 'All India Institute of Ayurveda (AIIA) / SWAYAM',
       target_skills: '',
       target_domain: 'Computer Science',
       difficulty: 'Intermediate',
@@ -56,11 +118,35 @@ export default {
     }
 
     function onPage(p) {
+      if (p < 1 || p > props.totalPages || p === props.currentPage) return;
       emit('change-page', p);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function jumpToPage() {
+      const p = parseInt(jumpPageInput.value, 10);
+      if (!isNaN(p) && p >= 1 && p <= props.totalPages && p !== props.currentPage) {
+        onPage(p);
+        jumpPageInput.value = '';
+      }
     }
 
     function onSelectDifficulty(diff) {
       emit('filter-difficulty', diff);
+    }
+
+    function onSelectSource(src) {
+      emit('filter-source', src);
+    }
+
+    function clearSearch() {
+      searchQuery.value = '';
+      emit('search', '');
+    }
+
+    function onResetFilters() {
+      searchQuery.value = '';
+      emit('reset-filters');
     }
 
     function openModal() {
@@ -86,199 +172,274 @@ export default {
       form.target_skills = '';
       form.description = '';
       form.url = '';
-      showModal.value = false;
-    }
-
-    function getDifficultyBadgeClass(difficulty) {
-      const d = (difficulty || '').toLowerCase();
-      if (d === 'beginner' || d === 'novice') {
-        return 'bg-emerald-50/10 text-emerald-700 border-emerald-200/30';
-      }
-      if (d === 'advanced') {
-        return 'bg-purple-950/10 text-purple-700 border-purple-300';
-      }
-      return 'bg-anthropic-peach/10 text-[#581C87] border-anthropic-peach/30';
+      closeModal();
     }
 
     return {
       showModal,
-      form,
       searchQuery,
+      jumpPageInput,
+      sourceOptions,
       difficultyOptions,
+      visiblePages,
+      startItem,
+      endItem,
+      form,
+      decodeHtml,
+      onSearch,
+      clearSearch,
+      onPage,
+      jumpToPage,
+      onSelectSource,
+      onSelectDifficulty,
+      onResetFilters,
       openModal,
       closeModal,
-      onSubmit,
-      onSearch,
-      onPage,
-      onSelectDifficulty,
-      getDifficultyBadgeClass,
-      decodeHtml
+      onSubmit
     };
   },
   template: `
     <div class="space-y-6">
       <header class="mb-6 flex flex-wrap justify-between items-end gap-4">
         <div>
-          <h1 class="font-serif text-3xl text-brand-text mb-2">MIT Courseware Modules</h1>
-          <p class="text-brand-muted text-sm">Manage, search, and propose academic syllabus modules indexed for multi-signal talent calibration.</p>
+          <h1 class="font-serif text-3xl text-brand-text mb-2">Academic Courseware & Curriculum Modules</h1>
+          <p class="text-brand-muted text-sm">Manage, search, and propose academic syllabus modules from participating institutions (SWAYAM, Skill India Digital, MIT) indexed for multi-signal talent calibration.</p>
         </div>
         <div class="flex items-center gap-3">
           <div v-if="totalCourses > 0" class="text-xs font-mono text-brand-muted bg-brand-surface px-3 py-1.5 rounded-lg border border-brand-border">
             {{ totalCourses.toLocaleString() }} Modules Total
           </div>
-          <button @click="openModal" class="btn-primary text-sm px-4 py-2 rounded-lg font-medium shadow-sm">
-            + Propose Module
+          <button @click="openModal" class="btn-primary text-sm px-4 py-2 rounded-lg font-medium shadow-sm cursor-pointer">
+            + Propose Courseware Module
           </button>
         </div>
       </header>
 
-      <!-- Search and Filter Controls -->
-      <div class="space-y-4 mb-6">
-        <div class="flex gap-3">
+      <!-- Search & Filter Controls Toolbar -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl border border-brand-border bg-white shadow-2xs mb-6">
+        <!-- Live Keyword Search Input -->
+        <div class="relative flex-1 max-w-md">
+          <svg class="w-4 h-4 text-brand-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
           <input 
             type="text" 
             v-model="searchQuery" 
             @keyup.enter="onSearch"
-            placeholder="Search topics, skills, or MIT course titles..." 
-            class="w-full max-w-md bg-white border border-brand-border text-brand-text px-4 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach"
+            placeholder="Search topics, skills, course titles..." 
+            class="w-full text-xs pl-9 pr-8 py-2 border border-brand-border rounded-lg outline-none focus:border-[#581C87] bg-white font-sans text-brand-text placeholder:text-brand-muted transition-colors"
           />
-          <button @click="onSearch" class="btn-primary px-5 py-2 text-sm rounded-lg font-medium shadow-sm">
-            Search
-          </button>
           <button 
             v-if="searchQuery" 
-            @click="searchQuery = ''; onSearch()" 
-            class="btn-secondary px-3 py-2 text-sm rounded-lg"
+            @click="clearSearch" 
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-text p-0.5 cursor-pointer text-xs"
+            title="Clear search"
           >
-            Clear
+            ✕
           </button>
         </div>
 
-        <!-- Difficulty Tier Filter Pills -->
-        <div class="flex items-center gap-2 pt-1">
-          <span class="text-xs text-brand-muted font-medium mr-1">Difficulty:</span>
+        <!-- Inline Dropdown Filters & Actions -->
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Source Filter Dropdown -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-medium text-brand-muted uppercase tracking-wider font-mono">Source:</span>
+            <select 
+              :value="selectedSource" 
+              @change="onSelectSource($event.target.value)"
+              class="text-xs border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-[#581C87] bg-white font-mono text-brand-text cursor-pointer transition-colors"
+            >
+              <option v-for="s in sourceOptions" :key="s.id" :value="s.id">{{ s.label }}</option>
+            </select>
+          </div>
+
+          <!-- Difficulty Filter Dropdown -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-medium text-brand-muted uppercase tracking-wider font-mono">Level:</span>
+            <select 
+              :value="selectedDifficulty" 
+              @change="onSelectDifficulty($event.target.value)"
+              class="text-xs border border-brand-border rounded-lg px-2.5 py-1.5 outline-none focus:border-[#581C87] bg-white font-mono text-brand-text cursor-pointer transition-colors"
+            >
+              <option v-for="d in difficultyOptions" :key="d.id" :value="d.id">{{ d.label }}</option>
+            </select>
+          </div>
+
+          <button @click="onSearch" class="btn-primary px-4 py-1.5 text-xs rounded-lg font-medium shadow-sm cursor-pointer">
+            Search
+          </button>
+
           <button 
-            v-for="opt in difficultyOptions"
-            :key="opt.id"
-            @click="onSelectDifficulty(opt.id)"
-            :class="selectedDifficulty.toLowerCase() === opt.id.toLowerCase() ? 'bg-anthropic-text text-white border-anthropic-text' : 'bg-white text-brand-muted hover:text-brand-text border-brand-border'"
-            class="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors shadow-2xs"
+            v-if="selectedSource !== 'all' || selectedDifficulty !== 'all' || searchQuery"
+            @click="onResetFilters"
+            class="text-xs font-mono text-[#581C87] hover:underline whitespace-nowrap px-1 py-1 cursor-pointer"
           >
-            {{ opt.label }}
+            Reset
           </button>
         </div>
       </div>
-
+      
       <div v-if="loading" class="text-center py-16 text-sm text-brand-muted">
-        <span class="spinner mr-2"></span> Loading academic courseware modules...
+        <span class="spinner mr-2"></span> Loading institutional curriculum modules...
       </div>
 
       <div v-else-if="courses.length === 0" class="card p-12 text-center text-brand-muted text-sm">
         <div class="w-12 h-12 rounded-full bg-brand-surface flex items-center justify-center mx-auto mb-4 border border-brand-border text-[#581C87]">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
-        <div class="font-serif text-lg text-brand-text mb-2">No modules found</div>
-        <p class="max-w-sm mx-auto leading-relaxed">No course modules matched your search criteria. Try clearing filters or propose a new syllabus module.</p>
+        <div class="font-serif text-lg text-brand-text mb-2">No courseware found</div>
+        <p class="max-w-sm mx-auto leading-relaxed">No modules match your current query. Try selecting "All Levels" or propose a new curriculum module.</p>
       </div>
 
-      <div v-else class="space-y-4">
-        <div v-for="c in courses" :key="c.course_id" class="card p-6 transition-colors hover:bg-white">
-          <div class="flex flex-wrap justify-between items-start mb-2 gap-2">
-            <div>
-              <h3 class="font-serif text-lg text-brand-text leading-tight mb-1">{{ decodeHtml(c.title) }}</h3>
-              <div class="text-xs text-brand-muted flex items-center gap-2">
-                <span class="font-medium text-brand-text">{{ c.provider || 'MIT OpenCourseWare' }}</span>
-                <span>• {{ c.duration_hours || 40 }} Hours</span>
-                <span v-if="c.target_domain">• {{ c.target_domain }}</span>
-              </div>
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div v-for="c in courses" :key="c.course_id" class="card p-5 flex flex-col justify-between hover:border-[#DDD6FE] transition-colors shadow-sm">
+          <div>
+            <div class="flex justify-between items-start mb-2 gap-2">
+              <h3 class="font-serif text-base text-brand-text leading-snug">{{ decodeHtml(c.title) }}</h3>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded border border-brand-border text-brand-muted shrink-0">{{ c.difficulty || 'Advanced' }}</span>
             </div>
-            <span 
-              :class="getDifficultyBadgeClass(c.difficulty)"
-              class="text-xs px-2.5 py-0.5 rounded font-mono font-medium border"
-            >
-              {{ c.difficulty || 'Intermediate' }}
-            </span>
+            <div class="text-xs text-[#581C87] font-mono mb-2 font-medium">{{ c.provider || 'Institution' }}</div>
+            <p class="text-xs text-brand-muted mb-4 line-clamp-3 leading-relaxed">{{ decodeHtml(c.description) }}</p>
           </div>
 
-          <p class="text-sm text-brand-muted mb-4 leading-relaxed max-w-3xl">{{ decodeHtml(c.description) }}</p>
-
-          <div class="flex justify-between items-center pt-4 border-t border-brand-border text-xs">
-            <div class="flex flex-wrap gap-1.5">
-              <span class="text-brand-muted font-medium mr-1 self-center">Target Skills:</span>
-              <span v-for="s in (c.target_skills || []).slice(0, 5)" :key="s" class="bg-brand-surface border border-brand-border px-2 py-0.5 rounded text-brand-text font-mono text-[11px]">
-                {{ s }}
-              </span>
+          <div class="pt-3 border-t border-brand-border flex items-center justify-between">
+            <div class="flex flex-wrap gap-1">
+              <span v-for="s in (c.target_skills || []).slice(0, 3)" :key="s" class="text-[10px] bg-brand-surface px-1.5 py-0.5 rounded border border-brand-border font-mono text-brand-text">{{ s }}</span>
             </div>
-            <a :href="c.url || '#'" target="_blank" class="text-[#581C87] hover:underline font-medium flex items-center gap-1 font-mono">
-              <span>View Syllabus</span>
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-              </svg>
+            <a :href="c.url || '#'" target="_blank" class="text-xs font-mono text-[#581C87] hover:underline flex items-center gap-1 font-medium">
+              Syllabus ↗
             </a>
           </div>
         </div>
       </div>
 
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex justify-between items-center mt-6 text-sm">
-        <span class="text-brand-muted font-mono text-xs">Page {{ currentPage }} of {{ totalPages }} ({{ totalCourses > 0 ? totalCourses.toLocaleString() : '2,153' }} Total)</span>
-        <div class="flex gap-2">
-          <button @click="onPage(currentPage - 1)" :disabled="currentPage <= 1" class="btn-secondary px-3 py-1.5 rounded-lg disabled:opacity-50 text-xs font-medium">Previous</button>
-          <button @click="onPage(currentPage + 1)" :disabled="currentPage >= totalPages" class="btn-secondary px-3 py-1.5 rounded-lg disabled:opacity-50 text-xs font-medium">Next</button>
+      <!-- Google-Style Pagination Bar (Always visible when courses exist) -->
+      <div v-if="courses.length > 0" class="mt-10 pt-6 border-t border-brand-border flex flex-col items-center gap-4">
+        <!-- Numbered Navigation Controls -->
+        <div class="flex items-center gap-1 sm:gap-2 flex-wrap justify-center select-none">
+          <!-- Previous Button -->
+          <button 
+            @click="onPage(currentPage - 1)" 
+            :disabled="currentPage <= 1" 
+            class="px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+            :class="currentPage <= 1 ? 'opacity-40 cursor-not-allowed bg-gray-50 border-brand-border text-brand-muted' : 'bg-white hover:bg-[#F5F3FF] hover:border-[#DDD6FE] text-[#581C87] border-brand-border font-semibold shadow-2xs cursor-pointer'"
+            title="Go to previous page"
+          >
+            <span>‹ Previous</span>
+          </button>
+
+          <!-- Numbered Page Buttons (1 2 3 4 5...) -->
+          <template v-for="(p, idx) in visiblePages" :key="idx">
+            <span v-if="p === '...'" class="px-2 py-1 text-sm text-brand-muted select-none font-mono">…</span>
+            <button 
+              v-else
+              @click="onPage(p)"
+              :class="p === currentPage ? 'bg-[#581C87] text-white border-[#581C87] font-semibold shadow-sm scale-105' : 'bg-white text-brand-text hover:bg-[#F5F3FF] hover:text-[#581C87] hover:border-[#DDD6FE] border-brand-border'"
+              class="w-9 h-9 rounded-lg text-xs font-mono font-medium border flex items-center justify-center transition-all cursor-pointer"
+            >
+              {{ p }}
+            </button>
+          </template>
+
+          <!-- Next Button -->
+          <button 
+            @click="onPage(currentPage + 1)" 
+            :disabled="currentPage >= totalPages" 
+            class="px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+            :class="currentPage >= totalPages ? 'opacity-40 cursor-not-allowed bg-gray-50 border-brand-border text-brand-muted' : 'bg-white hover:bg-[#F5F3FF] hover:border-[#DDD6FE] text-[#581C87] border-brand-border font-semibold shadow-2xs cursor-pointer'"
+            title="Go to next page"
+          >
+            <span>Next ›</span>
+          </button>
+        </div>
+
+        <!-- Summary & Direct Page Jump -->
+        <div class="flex flex-wrap items-center justify-center gap-4 text-xs text-brand-muted font-mono">
+          <div>
+            Showing <span class="font-semibold text-brand-text">{{ startItem }}–{{ endItem }}</span>
+            <span v-if="totalCourses > 0"> of <span class="font-semibold text-brand-text">{{ totalCourses.toLocaleString() }}</span> modules</span>
+            <span class="ml-1.5">(Page {{ currentPage }} of {{ totalPages }})</span>
+          </div>
+
+          <div v-if="totalPages > 5" class="flex items-center gap-2">
+            <span>Jump to page:</span>
+            <input 
+              type="number" 
+              v-model="jumpPageInput" 
+              @keyup.enter="jumpToPage" 
+              :min="1" 
+              :max="totalPages"
+              placeholder="No."
+              class="w-16 px-2 py-1 bg-white border border-brand-border rounded text-center text-xs text-brand-text outline-none focus:border-[#581C87]"
+            />
+            <button @click="jumpToPage" class="btn-secondary px-2.5 py-1 rounded text-xs font-medium">Go</button>
+          </div>
         </div>
       </div>
 
-      <!-- Add Course Modal -->
-      <div v-if="showModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999999; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); padding: 1rem;">
-        <div class="card w-full max-w-lg p-6 space-y-6 shadow-2xl">
-          <div class="flex justify-between items-center">
-            <h2 class="font-serif text-2xl text-brand-text">Propose Academic Module</h2>
-            <button @click="closeModal" class="text-brand-muted hover:text-brand-text text-xl">✕</button>
+      <!-- Propose Courseware Modal -->
+      <div v-if="showModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl border border-brand-border max-w-lg w-full p-6 shadow-xl space-y-4 animate-in fade-in zoom-in-95">
+          <div class="flex justify-between items-center pb-3 border-b border-brand-border">
+            <h2 class="font-serif text-xl text-brand-text">Propose Courseware Module</h2>
+            <button @click="closeModal" class="text-brand-muted hover:text-brand-text text-sm">✕</button>
           </div>
+
           <form @submit.prevent="onSubmit" class="space-y-4">
             <div>
-              <label class="block text-xs font-medium text-brand-muted mb-1">Course Title</label>
-              <input v-model="form.title" required placeholder="e.g. 6.033: Computer System Engineering" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach" />
+              <label class="block text-xs font-medium text-brand-muted mb-1">Module Title</label>
+              <input v-model="form.title" type="text" required placeholder="e.g. Standardized Protocols in Ayurvedic Drug Standardization" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-[#581C87]" />
             </div>
+
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-medium text-brand-muted mb-1">Institution / Department</label>
-                <input v-model="form.provider" required class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach" />
+                <label class="block text-xs font-medium text-brand-muted mb-1">Academic Provider</label>
+                <input v-model="form.provider" type="text" required class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-[#581C87]" />
               </div>
               <div>
-                <label class="block text-xs font-medium text-brand-muted mb-1">Difficulty Tier</label>
-                <select v-model="form.difficulty" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach">
-                  <option value="Beginner">Beginner / Novice</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
+                <label class="block text-xs font-medium text-brand-muted mb-1">Academic Domain</label>
+                <select v-model="form.target_domain" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-[#581C87]">
+                  <option>Computer Science</option>
+                  <option>Ayurvedic Pharmaceutical Sciences & Quality Control</option>
+                  <option>Data Science & Machine Learning</option>
+                  <option>Systems Architecture</option>
                 </select>
               </div>
             </div>
+
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-medium text-brand-muted mb-1">Target Domain</label>
-                <input v-model="form.target_domain" placeholder="e.g. Distributed Systems" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach" />
+                <label class="block text-xs font-medium text-brand-muted mb-1">Difficulty Level</label>
+                <select v-model="form.difficulty" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-[#581C87]">
+                  <option>Beginner</option>
+                  <option>Intermediate</option>
+                  <option>Advanced</option>
+                </select>
               </div>
               <div>
                 <label class="block text-xs font-medium text-brand-muted mb-1">Estimated Hours</label>
-                <input v-model.number="form.duration_hours" type="number" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach" />
+                <input v-model="form.duration_hours" type="number" min="1" max="300" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-[#581C87]" />
               </div>
             </div>
+
             <div>
-              <label class="block text-xs font-medium text-brand-muted mb-1">Target Skills (comma separated)</label>
-              <input v-model="form.target_skills" required placeholder="e.g. Distributed Systems, Concurrency, RPC, Fault Tolerance" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach" />
+              <label class="block text-xs font-medium text-brand-muted mb-1">Target Skills (comma-separated)</label>
+              <input v-model="form.target_skills" type="text" placeholder="Spectroscopy, WHO-GMP, Bio-Assay" class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-[#581C87]" />
             </div>
+
             <div>
-              <label class="block text-xs font-medium text-brand-muted mb-1">Description and Learning Outcomes</label>
-              <textarea v-model="form.description" rows="3" required placeholder="Describe modular objectives, lab assignments, and theoretical foundations..." class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach"></textarea>
+              <label class="block text-xs font-medium text-brand-muted mb-1">Syllabus Overview & Description</label>
+              <textarea v-model="form.description" rows="3" required placeholder="Outline core learning objectives, lab requirements, and certification standards..." class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-[#581C87]"></textarea>
             </div>
+
             <div>
-              <label class="block text-xs font-medium text-brand-muted mb-1">Syllabus URL</label>
-              <input v-model="form.url" placeholder="https://ocw.mit.edu/courses/..." class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-anthropic-peach" />
+              <label class="block text-xs font-medium text-brand-muted mb-1">Syllabus / Canonical URL</label>
+              <input v-model="form.url" type="url" placeholder="https://swayam.gov.in/..." class="w-full bg-white border border-brand-border text-brand-text px-3 py-2 rounded-lg text-sm outline-none focus:border-[#581C87]" />
             </div>
-            <div class="flex justify-end gap-3 pt-4 border-t border-brand-border">
-              <button type="button" @click="closeModal" class="btn-secondary px-4 py-2 rounded-lg text-sm">Cancel</button>
-              <button type="submit" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium">Publish Module</button>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-brand-border">
+              <button type="button" @click="closeModal" class="btn-secondary px-4 py-2 text-sm rounded-lg">Cancel</button>
+              <button type="submit" class="btn-primary px-4 py-2 text-sm rounded-lg font-medium">Propose Module</button>
             </div>
           </form>
         </div>

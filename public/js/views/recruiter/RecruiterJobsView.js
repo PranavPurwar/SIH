@@ -1,3 +1,4 @@
+import { ref, computed, watch } from '../../vue.js';
 import { decodeHtml } from '../../utils/formatters.js';
 
 export default {
@@ -13,8 +14,82 @@ export default {
     }
   },
   emits: ['open-post-modal', 'view-candidates'],
-  setup() {
+  setup(props) {
+    const currentPage = ref(1);
+    // Page size of 4 postings per page
+    const pageSize = ref(4);
+
+    const totalPages = computed(() => {
+      const total = props.jobs?.length || 0;
+      return Math.ceil(total / pageSize.value) || 1;
+    });
+
+    const paginatedJobs = computed(() => {
+      const list = props.jobs || [];
+      const start = (currentPage.value - 1) * pageSize.value;
+      return list.slice(start, start + pageSize.value);
+    });
+
+    const startItem = computed(() => {
+      if (!props.jobs?.length) return 0;
+      return (currentPage.value - 1) * pageSize.value + 1;
+    });
+
+    const endItem = computed(() => {
+      if (!props.jobs?.length) return 0;
+      return Math.min(currentPage.value * pageSize.value, props.jobs.length);
+    });
+
+    // Google-style visible page buttons
+    const visiblePages = computed(() => {
+      const current = currentPage.value;
+      const total = totalPages.value;
+      if (total <= 10) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+      }
+      const pages = [];
+      let start = Math.max(1, current - 4);
+      let end = Math.min(total, current + 4);
+      if (current <= 5) {
+        start = 1;
+        end = Math.min(total, 10);
+      } else if (current + 4 >= total) {
+        start = Math.max(1, total - 9);
+        end = total;
+      }
+      if (start > 1) {
+        pages.push(1);
+        if (start > 2) pages.push('...');
+      }
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (end < total) {
+        if (end < total - 1) pages.push('...');
+        pages.push(total);
+      }
+      return pages;
+    });
+
+    watch(() => props.jobs?.length, () => {
+      currentPage.value = 1;
+    });
+
+    function onPage(p) {
+      if (p < 1 || p > totalPages.value || p === currentPage.value) return;
+      currentPage.value = p;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     return {
+      currentPage,
+      pageSize,
+      totalPages,
+      paginatedJobs,
+      startItem,
+      endItem,
+      visiblePages,
+      onPage,
       decodeHtml
     };
   },
@@ -25,9 +100,14 @@ export default {
           <h1 class="font-serif text-3xl text-brand-text mb-2">Job Postings</h1>
           <p class="text-brand-muted text-sm">All open positions across the platform. Manage requisitions and monitor candidate pipelines.</p>
         </div>
-        <button @click="$emit('open-post-modal')" class="btn-primary text-sm px-4 py-2 rounded-lg font-medium shadow-sm">
-          + Post New Role
-        </button>
+        <div class="flex items-center gap-3">
+          <div v-if="jobs?.length > 0" class="text-xs font-mono text-brand-muted bg-brand-surface px-3 py-1.5 rounded-lg border border-brand-border">
+            {{ jobs.length }} Requisitions Total
+          </div>
+          <button @click="$emit('open-post-modal')" class="btn-primary text-sm px-4 py-2 rounded-lg font-medium shadow-sm">
+            + Post New Role
+          </button>
+        </div>
       </header>
       
       <div v-if="loading" class="text-center py-16 text-sm text-brand-muted">
@@ -43,7 +123,7 @@ export default {
       </div>
       
       <div v-else class="space-y-4">
-        <div v-for="job in jobs" :key="job.job_id" class="card p-6 transition-colors hover:border-[#DDD6FE] shadow-sm">
+        <div v-for="job in paginatedJobs" :key="job.job_id" class="card p-6 transition-colors hover:border-[#DDD6FE] shadow-sm">
           <div class="flex flex-wrap justify-between items-start mb-3 gap-2">
             <div>
               <h3 class="font-serif text-lg text-brand-text mb-1">{{ decodeHtml(job.title) }}</h3>
@@ -53,7 +133,7 @@ export default {
                 <span v-if="job.eligibility" class="text-xs text-brand-muted">• {{ job.eligibility }}</span>
               </div>
             </div>
-            <button @click="$emit('view-candidates', job.job_id)" class="text-xs border border-brand-border bg-brand-surface hover:bg-[#F5F3FF] text-[#581C87] hover:border-[#DDD6FE] px-3.5 py-1.5 rounded-lg transition-colors font-medium">
+            <button @click="$emit('view-candidates', job.job_id)" class="text-xs border border-brand-border bg-brand-surface hover:bg-[#F5F3FF] text-[#581C87] hover:border-[#DDD6FE] px-3.5 py-1.5 rounded-lg transition-colors font-medium cursor-pointer">
               View Candidates →
             </button>
           </div>
@@ -70,8 +150,54 @@ export default {
             </span>
           </div>
         </div>
+
+        <!-- Google-Style Pagination Bar (Always visible when postings exist) -->
+        <div v-if="jobs.length > 0" class="mt-10 pt-6 border-t border-brand-border flex flex-col items-center gap-4">
+          <!-- Numbered Navigation Controls -->
+          <div class="flex items-center gap-1 sm:gap-2 flex-wrap justify-center select-none">
+            <!-- Previous Button -->
+            <button 
+              @click="onPage(currentPage - 1)" 
+              :disabled="currentPage <= 1" 
+              class="px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+              :class="currentPage <= 1 ? 'opacity-40 cursor-not-allowed bg-gray-50 border-brand-border text-brand-muted' : 'bg-white hover:bg-[#F5F3FF] hover:border-[#DDD6FE] text-[#581C87] border-brand-border font-semibold shadow-2xs cursor-pointer'"
+              title="Go to previous page"
+            >
+              <span>‹ Previous</span>
+            </button>
+
+            <!-- Numbered Page Buttons (1 2 3 4 5...) -->
+            <template v-for="(p, idx) in visiblePages" :key="idx">
+              <span v-if="p === '...'" class="px-2 py-1 text-sm text-brand-muted select-none font-mono">…</span>
+              <button 
+                v-else
+                @click="onPage(p)"
+                :class="p === currentPage ? 'bg-[#581C87] text-white border-[#581C87] font-semibold shadow-sm scale-105' : 'bg-white text-brand-text hover:bg-[#F5F3FF] hover:text-[#581C87] hover:border-[#DDD6FE] border-brand-border'"
+                class="w-9 h-9 rounded-lg text-xs font-mono font-medium border flex items-center justify-center transition-all cursor-pointer"
+              >
+                {{ p }}
+              </button>
+            </template>
+
+            <!-- Next Button -->
+            <button 
+              @click="onPage(currentPage + 1)" 
+              :disabled="currentPage >= totalPages" 
+              class="px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors flex items-center gap-1.5"
+              :class="currentPage >= totalPages ? 'opacity-40 cursor-not-allowed bg-gray-50 border-brand-border text-brand-muted' : 'bg-white hover:bg-[#F5F3FF] hover:border-[#DDD6FE] text-[#581C87] border-brand-border font-semibold shadow-2xs cursor-pointer'"
+              title="Go to next page"
+            >
+              <span>Next ›</span>
+            </button>
+          </div>
+
+          <!-- Requisitions Range Summary -->
+          <div class="text-xs text-brand-muted font-mono">
+            Showing <span class="font-semibold text-brand-text">{{ startItem }}–{{ endItem }}</span> of <span class="font-semibold text-brand-text">{{ jobs.length }}</span> postings
+            <span class="ml-1.5">(Page {{ currentPage }} of {{ totalPages }})</span>
+          </div>
+        </div>
       </div>
     </div>
   `
 };
-

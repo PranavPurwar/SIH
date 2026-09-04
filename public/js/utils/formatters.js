@@ -10,6 +10,8 @@ export function decodeHtml(html) {
   text = text.replace(/\{\{[%<]\s*[a-zA-Z0-9_]+\s+"[^"]+"\s+"([^"]+)"\s*[%>]\}\}/g, '$1');
   text = text.replace(/\{\{[%<].*?[%>]\}\}/g, '');
   text = text.replace(/\s{2,}/g, ' ').trim();
+  text = text.replace(/\*{3}([^*]+)\*{3}/g, '<strong>$1</strong>');
+  text = text.replace(/\*{2}([^*]+)\*{2}/g, '<strong>$1</strong>');
   return text;
 }
 

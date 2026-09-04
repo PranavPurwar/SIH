@@ -227,9 +227,21 @@ export default {
               <span class="font-medium text-brand-text">MIT Courseware Admin</span>
               <span class="text-brand-muted font-mono">mit@skills.com</span>
             </button>
-            <button type="button" @click="useDemo('faculty@mit.edu')" class="w-full text-left text-xs px-3 py-2 rounded-lg border border-brand-border hover:bg-brand-surface transition-colors flex justify-between items-center">
-              <span class="font-medium text-brand-text">MIT Faculty (Prof. Sussman)</span>
+            <button type="button" @click="useDemo('elena.rostova@mit.edu')" class="w-full text-left text-xs px-3 py-2 rounded-lg border border-purple-200 bg-purple-50/50 hover:bg-purple-100/60 transition-colors flex justify-between items-center">
+              <span class="font-medium text-[#581C87]">Elena Rostova (MIT EECS Student Cohort)</span>
+              <span class="text-brand-muted font-mono">elena.rostova@mit.edu</span>
+            </button>
+            <button type="button" @click="useDemo('faculty@mit.edu')" class="w-full text-left text-xs px-3 py-2 rounded-lg border border-[#DDD6FE] bg-[#F5F3FF] hover:bg-[#EDE9FE] transition-colors flex justify-between items-center">
+              <span class="font-medium text-[#581C87]">★ MIT Faculty (Prof. Sussman)</span>
               <span class="text-brand-muted font-mono">faculty@mit.edu</span>
+            </button>
+            <button type="button" @click="useDemo('faculty@aiia.gov.in')" class="w-full text-left text-xs px-3 py-2 rounded-lg border border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100/70 transition-colors flex justify-between items-center">
+              <span class="font-medium text-emerald-900">★ AIIA Faculty (Prof. Tanuja Nesari - Ayurveda)</span>
+              <span class="text-brand-muted font-mono">faculty@aiia.gov.in</span>
+            </button>
+            <button type="button" @click="useDemo('aditi.deshmukh@aiia.gov.in')" class="w-full text-left text-xs px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50/40 hover:bg-emerald-100/40 transition-colors flex justify-between items-center">
+              <span class="font-medium text-emerald-800">Dr. Aditi Deshmukh (AIIA Student - Dravyaguna)</span>
+              <span class="text-brand-muted font-mono">aditi.deshmukh@aiia.gov.in</span>
             </button>
           </div>
         </div>
