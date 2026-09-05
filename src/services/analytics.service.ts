@@ -34,17 +34,12 @@ export interface InstitutionAnalytics {
 
 function extractInstitutionKeyword(name: string): string {
   if (!name) return '';
-  const lower = name.toLowerCase();
-  if (lower.includes('mit')) return 'MIT';
-  if (lower.includes('iit delhi') || lower.includes('iitd')) return 'IIT Delhi';
-  if (lower.includes('iit bombay') || lower.includes('iitb')) return 'IIT Bombay';
-  if (lower.includes('stanford')) return 'Stanford';
-  if (lower.includes('bits')) return 'BITS Pilani';
-  if (lower.includes('iiit hyderabad')) return 'IIIT Hyderabad';
-  if (lower.includes('iiit delhi')) return 'IIIT Delhi';
-  if (lower.includes('iisc')) return 'IISc';
-  if (lower.includes('dtu')) return 'DTU';
-  return name.trim();
+  const trimmed = name.trim();
+  const paren = trimmed.match(/\(([^)]+)\)/);
+  if (paren && paren[1].trim().length >= 3) {
+    return paren[1].trim();
+  }
+  return trimmed;
 }
 
 export async function getInstitutionalAnalytics(institutionName?: string): Promise<InstitutionAnalytics> {

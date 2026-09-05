@@ -54,6 +54,9 @@ export async function getStudentApplications(studentId: string): Promise<Applica
       FROM applications a
       LEFT JOIN jobs j ON a.job_id = j.job_id
       WHERE a.student_id = $1
+      WHERE a.student_id = $1 
+         OR a.student_id IN (SELECT id FROM students WHERE email = $1)
+         OR a.student_id IN (SELECT email FROM students WHERE id = $1)
       ORDER BY a.applied_at DESC;
     `;
     const { rows } = await pgPool.query(query, [studentId]);
@@ -93,6 +96,7 @@ export async function getAllApplications(): Promise<ApplicationRecord[]> {
       FROM applications a
       LEFT JOIN jobs j ON a.job_id = j.job_id
       LEFT JOIN students s ON a.student_id = s.id
+      LEFT JOIN students s ON (a.student_id = s.id OR a.student_id = s.email)
       ORDER BY a.updated_at DESC, a.match_pct DESC;
     `;
     const { rows } = await pgPool.query(query);
@@ -124,6 +128,7 @@ export async function getJobApplicants(jobId: string): Promise<ApplicationRecord
       FROM applications a
       LEFT JOIN jobs j ON a.job_id = j.job_id
       LEFT JOIN students s ON a.student_id = s.id
+      LEFT JOIN students s ON (a.student_id = s.id OR a.student_id = s.email)
       WHERE a.job_id = $1
       ORDER BY a.match_pct DESC;
     `;

@@ -1,17 +1,29 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { createCourse, searchCourses, getRecommendedCoursesForSkills } from '../services/course.service.js';
+import { createCourse, updateCourse, searchCourses, getRecommendedCoursesForSkills } from '../services/course.service.js';
 import { scrape, scrapeMitOcwCourses, scrapeSwayamCourses, scrapeSkillIndiaDigital } from '../services/scraper.service.js';
 import { supabase } from '../db/connection.js';
 import { validate } from '../middleware/validate.js';
-import { createCourseSchema, courseSearchSchema, scrapeRequestSchema } from '../schemas/course.schema.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
+import { createCourseSchema, updateCourseSchema, courseSearchSchema, scrapeRequestSchema } from '../schemas/course.schema.js';
 import { success, paginated } from '../lib/response.js';
-import { NotFoundError } from '../lib/errors.js';
+import { NotFoundError, ForbiddenError } from '../lib/errors.js';
 import { findTopMatchingJobs } from '../services/matching.service.js';
 import { createChildLogger } from '../lib/logger.js';
 import type { JobListing } from '../types/index.js';
 
 const logger = createChildLogger('CourseRoutes');
 export const courseRouter = Router();
+
+function normalizeName(name?: string): string {
+  return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function canManageCourse(userInst?: string, courseProvider?: string): boolean {
+  if (!userInst || !courseProvider) return false;
+  const u = normalizeName(userInst);
+  const p = normalizeName(courseProvider);
+  return u === p || u.includes(p) || p.includes(u);
+}
 
 // POST /api/courses/create
 courseRouter.post(
@@ -21,6 +33,44 @@ courseRouter.post(
     try {
       const newCourse = await createCourse(req.body);
       res.status(201).json(success({ message: 'Course created', course: newCourse }));
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// PUT /api/courses/:id - Faculty update courseware module
+courseRouter.put(
+  '/:id',
+  authenticate,
+  requireRole(['faculty']),
+  validate(updateCourseSchema, 'body'),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const courseId = req.params.id as string;
+      const { data: existing, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('course_id', courseId)
+        .single();
+
+      if (error || !existing) {
+        throw new NotFoundError(`Course ${courseId} not found`);
+      }
+
+      const userInstitution = req.user?.institution_or_company || '';
+      if (!canManageCourse(userInstitution, existing.provider)) {
+        throw new ForbiddenError(
+          `Institutional tenancy restriction: Faculty from '${userInstitution}' cannot edit courses belonging to '${existing.provider}'.`
+        );
+      }
+
+      const updated = await updateCourse(courseId, {
+        ...req.body,
+        provider: existing.provider // Keep owning institution
+      });
+
+      res.status(200).json(success({ message: 'Course updated successfully', course: updated }));
     } catch (err) {
       next(err);
     }

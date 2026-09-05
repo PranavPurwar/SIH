@@ -15,6 +15,20 @@ export const createCourseSchema = z.object({
 
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 
+export const updateCourseSchema = z.object({
+  title: z.string().min(2).max(200).optional(),
+  description: z.string().optional(),
+  provider: z.string().optional(),
+  target_skills: z.array(z.string().min(1)).optional(),
+  target_domain: z.string().optional(),
+  difficulty: z.enum(['Novice', 'Intermediate', 'Advanced', 'Beginner']).optional(),
+  url: z.string().url().optional().or(z.literal('')).optional(),
+  duration_hours: z.coerce.number().positive().optional(),
+  rating: z.coerce.number().min(0).max(5).optional(),
+});
+
+export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
+
 export const courseSearchSchema = z.object({
   q: z.string().optional(),
   query: z.string().optional(),

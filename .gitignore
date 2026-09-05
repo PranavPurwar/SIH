@@ -1,5 +1,67 @@
 dist
 .venv
 node_modules
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build and Compilation Outputs
+dist/
+public/js/
+*.tsbuildinfo
+
+# Python Environments & Cache
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pino*.log
+
+# Test & Coverage Outputs
+coverage/
+*.lcov
+.nyc_output/
+
+# OS Metadata
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Configurations
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Lockfiles
 *.lock
 .env
+package-lock.json
+yarn.lock
+
+# Temporary and Scratch Directories
+tmp/
+temp/
+scratch/

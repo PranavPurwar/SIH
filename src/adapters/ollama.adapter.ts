@@ -1,11 +1,15 @@
+import { Ollama } from 'ollama';
 import { createCircuitBreaker } from '../lib/circuit-breaker.js';
 import { ExternalServiceError } from '../lib/errors.js';
 import { EMBEDDING } from '../config/constants.js';
 import { env } from '../config/env.js';
+import { createChildLogger } from '../lib/logger.js';
 
-interface EmbedResponse {
-  embeddings: number[][];
-}
+const logger = createChildLogger('OllamaAdapter');
+
+export const ollamaClient = new Ollama({
+  host: env.OLLAMA_BASE_URL,
+});
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,29 +22,16 @@ async function rawEmbedBatch(texts: string[]): Promise<number[][]> {
     return trimmed.slice(0, EMBEDDING.MAX_TEXT_LENGTH);
   });
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
-
   try {
-    const response = await fetch(`${env.OLLAMA_BASE_URL}/api/embed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: env.OLLAMA_EMBED_MODEL,
-        input: sanitized,
-      }),
-      signal: controller.signal,
+    const response = await ollamaClient.embed({
+      model: env.OLLAMA_EMBED_MODEL,
+      input: sanitized,
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new ExternalServiceError('ollama', `Embed error (${response.status}): ${errorText}`);
-    }
-
-    const data = (await response.json()) as EmbedResponse;
-    return data.embeddings;
-  } finally {
-    clearTimeout(timeout);
+    return response.embeddings;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn({ err: message, model: env.OLLAMA_EMBED_MODEL }, 'Ollama embed call failed');
+    throw new ExternalServiceError('ollama', `Ollama embed failed: ${message}`);
   }
 }
 
@@ -90,7 +81,7 @@ export async function embedBatch(texts: string[], mode: EmbedMode = 'raw'): Prom
 export async function testOllamaHealth(): Promise<number> {
   const start = Date.now();
   try {
-    await rawEmbedBatch(['health check']);
+    await ollamaClient.list();
     return Date.now() - start;
   } catch {
     return -1;

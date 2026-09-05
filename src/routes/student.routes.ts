@@ -543,15 +543,13 @@ studentRouter.get(
         try {
           const token = authHeader.slice(7).trim();
           const decoded = jwt.verify(token, process.env.JWT_SECRET || 'skillbridge-jwt-secret-key-2026') as any;
-          if (decoded && decoded.role === 'faculty') {
-            const facultyInst = decoded.institution_or_company || 'MIT';
-            const instKeyword = facultyInst.includes('MIT') ? 'MIT' :
-                                facultyInst.includes('IIT Delhi') ? 'IIT Delhi' :
-                                facultyInst.includes('IIT Bombay') ? 'IIT Bombay' :
-                                facultyInst.includes('Stanford') ? 'Stanford' : facultyInst;
+          if (decoded && decoded.role === 'faculty' && decoded.institution_or_company) {
+            const facultyInst = decoded.institution_or_company.trim().toLowerCase();
             const studentInst = (student.institution || student.degree || '').toLowerCase();
-            if (!studentInst.includes(instKeyword.toLowerCase())) {
-              throw new ForbiddenError(`Access restricted: Candidate belongs to another institution and is outside your institutional scope (${facultyInst}).`);
+            const tokens = facultyInst.split(/[\s,()/-]+/).filter((t: string) => t.length > 2 && !['and', 'the', 'for', 'institute', 'department', 'university', 'technology'].includes(t));
+            const matches = studentInst.includes(facultyInst) || tokens.some((token: string) => studentInst.includes(token));
+            if (!matches) {
+              throw new ForbiddenError(`Access restricted: Candidate belongs to another institution and is outside your institutional scope (${decoded.institution_or_company}).`);
             }
           }
         } catch (authErr: any) {

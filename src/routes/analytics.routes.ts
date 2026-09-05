@@ -24,12 +24,14 @@ analyticsRouter.get(
           const token = authHeader.slice(7).trim();
           const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
           if (decoded && decoded.role === 'faculty') {
-            const facultyInst = decoded.institution_or_company || 'MIT';
+            const facultyInst = decoded.institution_or_company || '';
             // If faculty explicitly asks for an institution, verify it matches their affiliated institution
-            if (institution && !facultyInst.toLowerCase().includes(institution.toLowerCase()) && !institution.toLowerCase().includes(facultyInst.toLowerCase())) {
+            if (facultyInst && institution && !facultyInst.toLowerCase().includes(institution.toLowerCase()) && !institution.toLowerCase().includes(facultyInst.toLowerCase())) {
               throw new ForbiddenError(`Access denied: Faculty members may only view analytics for their affiliated institution (${facultyInst}).`);
             }
-            institution = facultyInst;
+            if (facultyInst) {
+              institution = facultyInst;
+            }
           }
         } catch (err: any) {
           if (err instanceof ForbiddenError) throw err;
@@ -54,10 +56,10 @@ analyticsRouter.get(
         throw new ForbiddenError('Access restricted to verified institutional faculty');
       }
 
-      const facultyInst = req.user.institution_or_company || 'MIT';
+      const facultyInst = req.user.institution_or_company || '';
       const requestedInst = req.query.institution as string | undefined;
 
-      if (requestedInst && !facultyInst.toLowerCase().includes(requestedInst.toLowerCase()) && !requestedInst.toLowerCase().includes(facultyInst.toLowerCase())) {
+      if (facultyInst && requestedInst && !facultyInst.toLowerCase().includes(requestedInst.toLowerCase()) && !requestedInst.toLowerCase().includes(facultyInst.toLowerCase())) {
         throw new ForbiddenError(`Access denied: Faculty members may only access student records from ${facultyInst}.`);
       }
 

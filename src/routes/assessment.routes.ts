@@ -7,6 +7,8 @@ import {
   gradeAssessmentSuite,
 } from '../services/assessment.service.js';
 import { validate } from '../middleware/validate.js';
+import { authenticate, requireRole } from '../middleware/auth.js';
+import { ForbiddenError } from '../lib/errors.js';
 import {
   createAssessmentSuiteSchema,
   updateAssessmentSuiteSchema,
@@ -16,6 +18,17 @@ import {
 import { success } from '../lib/response.js';
 
 export const assessmentRouter = Router();
+
+function normalizeInstitution(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function canManageSuite(userInstitution?: string, suiteInstitution?: string): boolean {
+  if (!userInstitution || !suiteInstitution) return false;
+  const u = normalizeInstitution(userInstitution);
+  const s = normalizeInstitution(suiteInstitution);
+  return u === s || u.includes(s) || s.includes(u);
+}
 
 // GET /api/assessments - List institutional assessment suites with search & filters
 assessmentRouter.get(
@@ -48,11 +61,25 @@ assessmentRouter.get(
 // PUT /api/assessments/:id - Faculty update full institutional assessment suite
 assessmentRouter.put(
   '/:id',
+  authenticate,
+  requireRole(['faculty']),
   validate(updateAssessmentSuiteSchema, 'body'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const suiteId = String(req.params.id);
-      const suite = await updateAssessmentSuite(suiteId, req.body);
+      const existing = await getAssessmentSuiteById(suiteId);
+      
+      const userInstitution = req.user?.institution_or_company || '';
+      if (!canManageSuite(userInstitution, existing.institution)) {
+        throw new ForbiddenError(
+          `Institutional tenancy restriction: Faculty from '${userInstitution}' cannot edit assessment suites belonging to '${existing.institution}'.`
+        );
+      }
+
+      const suite = await updateAssessmentSuite(suiteId, {
+        ...req.body,
+        institution: existing.institution // Prevent changing suite away from its owning institution
+      });
       res.status(200).json(success({ message: 'Assessment suite updated successfully', suite }));
     } catch (err) {
       next(err);
@@ -63,10 +90,17 @@ assessmentRouter.put(
 // POST /api/assessments/create - Faculty create full institutional assessment suite
 assessmentRouter.post(
   '/create',
+  authenticate,
+  requireRole(['faculty']),
   validate(createAssessmentSuiteSchema, 'body'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const suite = await createAssessmentSuite(req.body);
+      const userInstitution = req.user?.institution_or_company;
+      const payload = {
+        ...req.body,
+        institution: userInstitution || req.body.institution
+      };
+      const suite = await createAssessmentSuite(payload);
       res.status(201).json(success({ message: 'Assessment suite created successfully', suite }));
     } catch (err) {
       next(err);
