@@ -214,9 +214,7 @@ export function buildEvidenceTraceabilityMatrix(
   }
 
   if (targetSkillNames.length === 0) {
-    ['Content-Addressable Storage', 'Git', 'Distributed Systems', 'C', 'Merkle Trees', 'Algorithms'].forEach((s: string) => {
-      if (!targetSkillNames.includes(s)) targetSkillNames.push(s);
-    });
+    return [];
   }
 
   const traces: DetailedTrace[] = [];
@@ -233,7 +231,7 @@ export function buildEvidenceTraceabilityMatrix(
     const evalSkill = evaluatedSkills.find((s: StudentSkill) => getSkillName(s).toLowerCase() === lower);
     const isParsed = parsedSkills.some((s: string) => getSkillName(s).toLowerCase() === lower);
 
-    let relatedProject = projects.find((p: StudentProject) => {
+    const relatedProject = projects.find((p: StudentProject) => {
       const tools = Array.isArray(p.tools_used)
         ? p.tools_used.map((t: string) => String(t).toLowerCase())
         : (p.tools_used ? String(p.tools_used).toLowerCase().split(',') : []);
@@ -242,76 +240,66 @@ export function buildEvidenceTraceabilityMatrix(
       return pText.includes(lower);
     });
 
-    if (!relatedProject) {
-      if (domainKey === 'Storage & Version Control' || domainKey === 'Security & Cryptography' || domainKey === 'Algorithms & Data Structures') {
-        relatedProject = projects.find((p: StudentProject) => (p.title || '').toLowerCase().includes('git')) || projects[0];
-      } else {
-        relatedProject = projects.find((p: StudentProject) => (p.title || '').toLowerCase().includes('linux')) || projects[0];
-      }
-    }
-
-    const projectTitle = relatedProject?.title || projects[0]?.title || '';
+    const projectTitle = relatedProject?.title || (projects[0]?.title ? `${projects[0].title} (Inferred)` : 'Direct Resume Profile');
     const startLine = lineCounter;
-    const endLine = lineCounter + Math.floor(Math.random() * 4) + 3;
-    lineCounter += 6;
+    const endLine = lineCounter + 4;
+    lineCounter += 5;
 
     let depthPct = 0;
     const rawDepth = evalSkill?.depth_score ?? evalSkill?.score;
     if (rawDepth != null) {
       const num = Number(rawDepth);
       depthPct = num <= 1 ? Math.round(num * 100) : Math.round(num);
-    }
-    if (!depthPct) {
-      const hash = Math.abs(skillName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0));
-      depthPct = isParsed ? (84 + (hash % 10)) : (76 + (hash % 12));
+    } else {
+      depthPct = isParsed ? 50 : 0;
     }
 
     let status = 'VERIFIED';
     if (depthPct >= 80) status = 'VERIFIED';
-    else if (depthPct >= 68) status = 'CALIBRATED';
+    else if (depthPct >= 50) status = 'CALIBRATED';
     else status = 'INFERRED';
 
-    const distanceJitter = ((depthPct % 5) * 0.01) - 0.02;
-    const semanticDistance = Number(Math.max(0.85, Math.min(0.97, domainConfig.defaultDistance + distanceJitter)).toFixed(2));
-
-    const kwSlice = domainConfig.keywords.slice(0, 3 + (depthPct % 2));
+    const semanticDistance = domainConfig.defaultDistance;
+    const kwSlice = domainConfig.keywords.slice(0, 4);
 
     const matchedAsmt = assessments.find((a: StudentAssessmentAttempt) => {
       const aTitle = (a.title || '').toLowerCase();
       const aCode = (a.code || a.assessment_id || '').toLowerCase();
-      return aTitle.includes(lower) || aCode.includes(lower) ||
-             aTitle.includes(domainKey.toLowerCase().split(' ')[0]);
-    }) || assessments[0];
+      const targetList = (a.target_skills || []).map((sk: string) => sk.toLowerCase());
+      return aTitle.includes(lower) || aCode.includes(lower) || targetList.includes(lower);
+    });
 
-    const asmtCode = matchedAsmt?.code || matchedAsmt?.assessment_id || 
-      (domainKey === 'Systems & OS' ? 'IITD-COP-701' : 
-      (domainKey === 'Storage & Version Control' ? 'MIT-EECS-6033' : 
-      (domainKey === 'Distributed & Storage' ? 'MIT-EECS-6033' : 
-      (domainKey === 'Accelerated Computing & ML' ? 'NVIDIA-CUDA-801' : 'STAN-CS-142'))));
+    let asmtCode = 'Not Attempted';
+    let asmtScore = 0;
+    let questionTopic = 'No assessment taken for this skill';
 
-    let asmtScore = 100;
-    if (matchedAsmt?.score_pct != null) {
-      asmtScore = Math.round(Number(matchedAsmt.score_pct));
-    } else if (matchedAsmt?.score != null) {
-      const sc = Number(matchedAsmt.score);
-      asmtScore = sc <= 1 ? Math.round(sc * 100) : Math.round(sc);
+    if (matchedAsmt) {
+      asmtCode = matchedAsmt.code || matchedAsmt.assessment_id || 'Assessment Completed';
+      if (matchedAsmt.score_pct != null) {
+        asmtScore = Math.round(Number(matchedAsmt.score_pct));
+      } else if (matchedAsmt.score != null) {
+        const sc = Number(matchedAsmt.score);
+        asmtScore = sc <= 1 ? Math.round(sc * 100) : Math.round(sc);
+      }
+      const questions = QUESTION_TOPIC_MAP[domainKey] || QUESTION_TOPIC_MAP['Systems & OS'];
+      const questionIndex = Math.abs(skillName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % questions.length;
+      questionTopic = questions[questionIndex];
     }
 
-    const questions = QUESTION_TOPIC_MAP[domainKey] || QUESTION_TOPIC_MAP['Systems & OS'];
-    const questionIndex = Math.abs(skillName.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % questions.length;
-    const questionTopic = questions[questionIndex];
-
     const s1 = depthPct / 100;
-    const s2 = (depthPct + (domainConfig.defaultDistance > 0.9 ? 2 : -2)) / 100;
-    const s3 = (asmtScore >= 90 ? (depthPct + 1) : asmtScore) / 100;
-    const mean = (s1 + s2 + s3) / 3;
-    const variance = ((s1 - mean) ** 2 + (s2 - mean) ** 2 + (s3 - mean) ** 2) / 3;
+    const s2 = domainConfig.defaultDistance;
+    const signals = matchedAsmt ? [s1, s2, asmtScore / 100] : [s1, s2];
+    const mean = signals.reduce((a, b) => a + b, 0) / signals.length;
+    const variance = signals.reduce((acc, val) => acc + (val - mean) ** 2, 0) / signals.length;
     const sigma = Number(Math.max(0.02, Math.sqrt(variance)).toFixed(2));
-    const score = Number((1 - sigma).toFixed(2));
+    const score = Number(Math.max(0, 1 - sigma).toFixed(2));
 
     let reliabilityLabel = 'High Reliability';
-    if (sigma > 0.08) reliabilityLabel = 'Moderate Reliability';
-    if (sigma > 0.15) reliabilityLabel = 'Calibrated Signal';
+    if (!matchedAsmt) {
+      reliabilityLabel = depthPct > 60 ? 'Calibrated (No Assessment)' : 'Unverified Signal';
+    } else if (sigma > 0.12) {
+      reliabilityLabel = 'Moderate Reliability';
+    }
 
     const traceObj: DetailedTrace = {
       skill: skillName,
@@ -319,7 +307,7 @@ export function buildEvidenceTraceabilityMatrix(
       depthPct,
       ingestion: {
         sourceProject: projectTitle,
-        lineRange: `Lines ${startLine}-${endLine} of parsed payload`,
+        lineRange: relatedProject ? `Lines ${startLine}-${endLine} of parsed payload` : 'Profile Claim',
         semanticAnchor: domainConfig.anchor,
         embeddingModel: domainConfig.model,
         distance: semanticDistance,

@@ -27,8 +27,9 @@ export async function getLearningPrograms(type?: string): Promise<LearningProgra
     query += ` ORDER BY created_at DESC`;
     const { rows } = await pgPool.query(query, params);
     return rows;
-  } catch (error: any) {
-    throw new AppError(500, 'DB_ERROR', 'Failed to retrieve learning programs');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Database error';
+    throw new AppError(500, 'DB_ERROR', 'Failed to retrieve learning programs: ' + msg);
   }
 }
 
@@ -52,7 +53,8 @@ export async function createLearningProgram(payload: Partial<LearningProgram>): 
       payload.stipend_or_perk || null,
     ]);
     return rows[0];
-  } catch (error: any) {
-    throw new AppError(500, 'DB_ERROR', 'Failed to create learning program: ' + error.message);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Database error';
+    throw new AppError(500, 'DB_ERROR', 'Failed to create learning program: ' + msg);
   }
 }

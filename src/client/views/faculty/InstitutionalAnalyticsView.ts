@@ -74,7 +74,6 @@ export default defineComponent({
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
             </svg>
             <span class="font-medium">{{ analytics?.institution_name || facultyUser?.institution_or_company || 'Affiliated Institution' }}</span>
-            <span class="font-medium">{{ analytics?.institution_name || facultyUser?.institution_or_company || '' }}</span>
           </div>
         </div>
       </header>
@@ -101,7 +100,7 @@ export default defineComponent({
           <div class="bg-white rounded-xl border border-brand-border p-5 space-y-1.5 shadow-2xs">
             <div class="text-[11px] font-mono text-brand-muted uppercase tracking-wider">Placement Readiness</div>
             <div class="font-serif text-3xl text-[#581C87] font-semibold">
-              {{ analytics.placement_readiness_pct || 90 }}%
+              {{ analytics.placement_readiness_pct ?? 0 }}%
             </div>
             <div class="text-[11px] text-emerald-700 font-mono">Competency Baseline</div>
           </div>
@@ -109,7 +108,7 @@ export default defineComponent({
           <div class="bg-white rounded-xl border border-brand-border p-5 space-y-1.5 shadow-2xs">
             <div class="text-[11px] font-mono text-brand-muted uppercase tracking-wider">Enrolled Cohort</div>
             <div class="font-serif text-3xl text-brand-text font-semibold">
-              {{ analytics.total_students || 5 }}
+              {{ analytics.total_students ?? 0 }}
             </div>
             <div class="text-[11px] text-brand-muted font-mono">Affiliated Students</div>
           </div>
@@ -117,7 +116,7 @@ export default defineComponent({
           <div class="bg-white rounded-xl border border-brand-border p-5 space-y-1.5 shadow-2xs">
             <div class="text-[11px] font-mono text-brand-muted uppercase tracking-wider">Target Requisitions</div>
             <div class="font-serif text-3xl text-brand-text font-semibold">
-              {{ analytics.total_jobs || 12 }}
+              {{ analytics.total_jobs ?? 0 }}
             </div>
             <div class="text-[11px] text-brand-muted font-mono">Industry Positions</div>
           </div>
@@ -125,10 +124,10 @@ export default defineComponent({
           <div class="bg-white rounded-xl border border-brand-border p-5 space-y-1.5 shadow-2xs">
             <div class="text-[11px] font-mono text-brand-muted uppercase tracking-wider">Shortlisted / Placed</div>
             <div class="font-serif text-3xl text-emerald-700 font-semibold">
-              {{ analytics.placed_or_shortlisted_count || 8 }}
+              {{ analytics.placed_or_shortlisted_count ?? 0 }}
             </div>
             <div class="text-[11px] text-brand-muted font-mono">
-              {{ Math.round((analytics.placed_or_shortlisted_count / (analytics.total_applications || 1)) * 100) }}% Conversion Rate
+              {{ analytics.total_applications > 0 ? Math.round(((analytics.placed_or_shortlisted_count ?? 0) / analytics.total_applications) * 100) : 0 }}% Conversion Rate
             </div>
           </div>
         </div>
@@ -153,8 +152,7 @@ export default defineComponent({
             <input 
               v-model="studentSearchQuery" 
               type="text" 
-              placeholder="Search students by name, degree, or verified skills (e.g. Elena, CUDA, Distributed Systems)..." 
-              placeholder="Search students by name, degree, or verified skills (e.g. Arjun, CUDA, Distributed Systems)..." 
+              placeholder="Search students by name, degree, or verified skills (e.g. Arjun, Elena, Distributed Systems)..." 
               class="w-full text-xs pl-9 pr-8 py-2.5 border border-brand-border rounded-lg outline-none focus:border-[#581C87] bg-white font-sans text-brand-text placeholder:text-brand-muted"
             />
             <button 
@@ -179,6 +177,11 @@ export default defineComponent({
                 </tr>
               </thead>
               <tbody class="divide-y divide-brand-border">
+                <tr v-if="filteredCohortStudents.length === 0">
+                  <td colspan="5" class="py-10 text-center text-brand-muted text-xs">
+                    No students currently enrolled under {{ analytics.institution_name }}.
+                  </td>
+                </tr>
                 <tr v-for="st in filteredCohortStudents" :key="st.id" class="hover:bg-brand-surface/40 transition-colors">
                   <!-- Name & Degree -->
                   <td class="py-3 px-4 align-top whitespace-nowrap">
@@ -263,6 +266,11 @@ export default defineComponent({
                 </tr>
               </thead>
               <tbody class="divide-y divide-brand-border">
+                <tr v-if="(analytics.top_in_demand_skills || []).length === 0">
+                  <td colspan="4" class="py-8 text-center text-brand-muted text-xs">
+                    No active skill demand data available for this cohort.
+                  </td>
+                </tr>
                 <tr v-for="sk in (analytics.top_in_demand_skills || [])" :key="sk.skill" class="hover:bg-brand-surface/40 transition-colors">
                   <td class="py-3 px-4 font-medium text-brand-text font-mono">{{ sk.skill }}</td>
                   <td class="py-3 px-4 text-brand-muted">
@@ -305,19 +313,19 @@ export default defineComponent({
             <div class="space-y-2.5 text-xs font-mono">
               <div class="flex items-center justify-between p-2.5 rounded-lg bg-brand-surface border border-brand-border">
                 <span class="text-brand-text">1. Total Applications Submitted</span>
-                <span class="font-bold text-[#581C87]">{{ analytics.hiring_funnel?.applied || 10 }}</span>
+                <span class="font-bold text-[#581C87]">{{ analytics.hiring_funnel?.applied ?? 0 }}</span>
               </div>
               <div class="flex items-center justify-between p-2.5 rounded-lg bg-brand-surface border border-brand-border">
                 <span class="text-brand-text">2. Under Technical Review</span>
-                <span class="font-bold text-brand-text">{{ analytics.hiring_funnel?.under_review || 2 }}</span>
+                <span class="font-bold text-brand-text">{{ analytics.hiring_funnel?.under_review ?? 0 }}</span>
               </div>
               <div class="flex items-center justify-between p-2.5 rounded-lg bg-purple-50 border border-purple-200">
                 <span class="text-purple-900 font-medium">3. Shortlisted for Interviews</span>
-                <span class="font-bold text-purple-900">{{ analytics.hiring_funnel?.shortlisted || 4 }}</span>
+                <span class="font-bold text-purple-900">{{ analytics.hiring_funnel?.shortlisted ?? 0 }}</span>
               </div>
               <div class="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
                 <span class="text-emerald-900 font-medium">4. Selected / Placed</span>
-                <span class="font-bold text-emerald-900">{{ analytics.hiring_funnel?.selected || 4 }}</span>
+                <span class="font-bold text-emerald-900">{{ analytics.hiring_funnel?.selected ?? 0 }}</span>
               </div>
             </div>
           </div>
@@ -330,6 +338,9 @@ export default defineComponent({
             </div>
 
             <div class="space-y-3 pt-1">
+              <div v-if="(analytics.domain_competency_distribution || []).length === 0" class="py-6 text-center text-brand-muted text-xs">
+                No domain competency telemetry recorded for this cohort.
+              </div>
               <div v-for="d in (analytics.domain_competency_distribution || [])" :key="d.domain" class="space-y-1">
                 <div class="flex items-center justify-between text-xs font-mono">
                   <span class="font-medium text-brand-text">{{ d.domain }}</span>

@@ -349,10 +349,12 @@ export default defineComponent({
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div class="card p-4 text-center">
             <div class="text-2xl font-serif text-brand-text">{{ totalCourses > 0 ? totalCourses.toLocaleString() : '2,152' }}</div>
+            <div class="text-2xl font-serif text-brand-text">{{ totalCourses > 0 ? totalCourses.toLocaleString() : '0' }}</div>
             <div class="text-xs text-brand-muted mt-1 uppercase tracking-wider font-mono">OCW Modules</div>
           </div>
           <div class="card p-4 text-center">
             <div class="text-2xl font-serif text-brand-text">{{ assessments.length > 0 ? assessments.length : 4 }}</div>
+            <div class="text-2xl font-serif text-brand-text">{{ assessments.length }}</div>
             <div class="text-xs text-brand-muted mt-1 uppercase tracking-wider font-mono">Assessment Suites</div>
           </div>
           <div class="card p-4 text-center">
@@ -377,6 +379,7 @@ export default defineComponent({
               class="text-xs border border-brand-border bg-brand-surface hover:bg-[#F3EEF9] text-brand-text px-3 py-1.5 rounded-lg transition-colors font-medium"
             >
               Browse All {{ totalCourses > 0 ? totalCourses.toLocaleString() : '2,152' }} Modules →
+              Browse All {{ totalCourses > 0 ? totalCourses.toLocaleString() : '' }} Modules →
             </button>
           </div>
 
@@ -433,6 +436,7 @@ export default defineComponent({
             <div>
               <h3 class="font-serif text-lg text-brand-text">Institutional Assessment Suites</h3>
               <p class="text-xs text-brand-muted">Cryptographically verified academic certification exams issued by consortium institutions.</p>
+              <p class="text-xs text-brand-muted">Academic certification exams issued by consortium institutions.</p>
             </div>
             <button 
               @click="$emit('navigate-tab', 'quiz')"
@@ -494,6 +498,7 @@ export default defineComponent({
           <div class="card p-4 text-center">
             <div class="text-2xl font-serif text-[#581C87]">
               {{ allAssessments.length > 0 ? Math.round(allAssessments.reduce((acc, a) => acc + (a.score_pct || 0), 0) / allAssessments.length) : 100 }}%
+              {{ allAssessments.length > 0 ? Math.round(allAssessments.reduce((acc, a) => acc + (a.score_pct ?? 0), 0) / allAssessments.length) + '%' : 'N/A' }}
             </div>
             <div class="text-xs text-brand-muted mt-1 uppercase tracking-wider font-mono">Average Score</div>
           </div>

@@ -96,7 +96,7 @@ export async function matchStudentWithJob(
   for (let i = 0; i < required.length; i++) {
     const req = required[i];
     const reqVec = reqVecs[i];
-    const minDepth = req.min_depth || 0.5;
+    const minDepth = req.min_depth ?? 0.5;
     const rLower = req.skill.toLowerCase().trim();
 
     let bestMatch: EvaluatedSkill | null = null;
@@ -127,7 +127,7 @@ export async function matchStudentWithJob(
     }
 
     if (bestMatch && (maxSim >= SEMANTIC_MATCH_THRESHOLD || maxSim === 1.0)) {
-      const candidateDepth = bestMatch.depth_score || 0.7;
+      const candidateDepth = bestMatch.depth_score ?? 0;
       const ratio = Math.min(1.0, candidateDepth / minDepth);
       totalScore += ratio;
 

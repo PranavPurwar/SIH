@@ -1,8 +1,9 @@
 import { ref, computed } from '../vue.js';
+import type { Ref } from '../vue.js';
 import { api } from '../services/api.js';
-import type { JobListing, JobApplication } from '../types/index.js';
+import type { JobListing, JobApplication, AuthUser } from '../types/index.js';
 
-export function useJobs() {
+export function useJobs(currentUser: Ref<AuthUser | null>) {
   const jobsLoading = ref(false);
   const jobMatches = ref<JobListing[]>([]);
   const studentApplications = ref<JobApplication[]>([]);
@@ -37,14 +38,19 @@ export function useJobs() {
     }
   }
 
-  async function handleApplyJob(job: JobListing, studentId: string) {
+  async function handleApplyJob(job: JobListing) {
+    const user = currentUser.value;
+    if (!user) {
+      alert('You must be signed in to apply for positions');
+      return;
+    }
     try {
       await api.applyJob({
-        student_id: studentId,
+        student_id: user.id,
         job_id: job.job_id,
         match_pct: job.overall_match_pct || 0
       });
-      await loadStudentApplications(studentId);
+      await loadStudentApplications(user.id);
       alert(`Application submitted for ${job.title} at ${job.company}!`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';

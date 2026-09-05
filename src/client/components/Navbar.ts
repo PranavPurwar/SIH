@@ -136,7 +136,7 @@ export default defineComponent({
               <div 
                 @click="navigate(isFaculty ? 'faculty-profile' : 'profile')"
                 class="text-xs font-semibold text-brand-text hover:text-[#581C87] cursor-pointer flex items-center justify-between group transition-colors"
-                title="Open Faculty Profile & CV"
+                title="Open Faculty Profile"
               >
                 <span>{{ authUser?.name }}</span>
                 <span class="text-[10px] text-purple-700 opacity-0 group-hover:opacity-100 transition-opacity font-normal font-sans">View profile →</span>
@@ -146,7 +146,7 @@ export default defineComponent({
                 v-if="authUser?.institution_or_company" 
                 @click="navigate('analytics')"
                 class="mt-2 inline-flex items-center gap-2 bg-[#F5F3FF] hover:bg-[#EDE9FE] text-[#581C87] border border-[#DDD6FE] px-2 py-0.5 rounded text-[10px] font-mono cursor-pointer transition-colors"
-                title="Open Institutional Profile & Analytics"
+                title="Open Institutional Analytics"
               >
                 <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
@@ -161,7 +161,7 @@ export default defineComponent({
                 Institutional Tools
               </div>
 
-              <!-- Faculty Profile & CV -->
+              <!-- Faculty Profile -->
               <button 
                 @click="navigate('faculty-profile')"
                 :class="(activeTab === 'faculty-profile' || activeTab === 'profile') ? 'bg-[#F5F3FF] text-[#581C87] font-medium' : 'text-brand-text hover:bg-brand-surface'"
@@ -171,12 +171,12 @@ export default defineComponent({
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                 </svg>
                 <div class="flex-1 min-w-0">
-                  <div class="font-medium">Faculty Profile & CV</div>
+                  <div class="font-medium">Faculty Profile</div>
                   <div class="text-[10px] text-brand-muted">Past grants, research agenda, lab & CV dossier</div>
                 </div>
               </button>
 
-              <!-- Institutional Profile & Analytics -->
+              <!-- Institutional Analytics -->
               <button 
                 @click="navigate('analytics')"
                 :class="activeTab === 'analytics' ? 'bg-[#F5F3FF] text-[#581C87] font-medium' : 'text-brand-text hover:bg-brand-surface'"

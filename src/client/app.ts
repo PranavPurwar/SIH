@@ -112,8 +112,8 @@ const app = createApp({
       handleApplyJob,
       handleCreateJob,
       handleUpdateCandidateStatus,
-      handleViewJobCandidates
-    } = useJobs();
+      handleViewJobCandidates,
+    } = useJobs(authUser);
 
     // 4. Student Profile
     const {

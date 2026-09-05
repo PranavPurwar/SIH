@@ -7,6 +7,8 @@ import {
   updateApplicationStatus,
 } from '../services/application.service.js';
 import { success } from '../lib/response.js';
+import { validate } from '../middleware/validate.js';
+import { applyJobSchema, type ApplyJobInput } from '../schemas/job.schema.js';
 
 export const applicationRouter = Router();
 
@@ -26,14 +28,11 @@ applicationRouter.get(
 // POST /api/applications/apply
 applicationRouter.post(
   '/apply',
+  validate(applyJobSchema, 'body'),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { student_id, job_id, match_pct, notes } = req.body;
-      if (!student_id || !job_id) {
-        res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'student_id and job_id are required' } });
-        return;
-      }
-      const record = await submitApplication(student_id, job_id, match_pct || 0, notes);
+      const { student_id, job_id, match_pct, notes } = req.body as ApplyJobInput;
+      const record = await submitApplication(student_id, job_id, match_pct, notes);
       res.status(201).json(success({ message: 'Application submitted successfully', application: record }));
     } catch (err) {
       next(err);

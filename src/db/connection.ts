@@ -13,7 +13,7 @@ export const pgPool = new Pool({
   min: 2,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
-  ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: false },
 });
 
 pgPool.on('error', (err) => {

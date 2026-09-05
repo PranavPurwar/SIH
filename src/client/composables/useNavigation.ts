@@ -17,7 +17,7 @@ export function useNavigation(authUser: Ref<AuthUser | null>, isAuthenticated: R
     } else if (role === 'faculty') {
       return [
         { id: 'faculty-programs', name: 'Opportunities & Grants' },
-        { id: 'analytics', name: 'Institutional Profile & Analytics' },
+        { id: 'analytics', name: 'Institutional Analytics' },
         { id: 'mentorship', name: 'Mentorship & Programs' }
       ];
     }

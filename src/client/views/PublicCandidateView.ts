@@ -292,6 +292,7 @@ export default defineComponent({
             <div class="card p-4 text-center">
               <div class="text-2xl font-serif text-[#581C87]">
                 {{ allAssessments.length > 0 ? Math.round(allAssessments.reduce((acc, a) => acc + (a.score_pct || 0), 0) / allAssessments.length) : 100 }}%
+                {{ allAssessments.length > 0 ? Math.round(allAssessments.reduce((acc, a) => acc + (a.score_pct ?? 0), 0) / allAssessments.length) + '%' : 'N/A' }}
               </div>
               <div class="text-xs text-brand-muted mt-1 uppercase tracking-wider font-mono">Average Score</div>
             </div>
@@ -485,9 +486,6 @@ export default defineComponent({
                         <span>🔗 {{ proj.url || proj.project_url }} ↗</span>
                       </a>
                     </div>
-                    <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded border border-brand-border bg-brand-surface text-brand-text shrink-0 self-start">
-                      Verified Artifact
-                    </span>
                   </div>
                   <p class="text-xs text-brand-muted leading-relaxed mb-3">
                     {{ proj.description }}

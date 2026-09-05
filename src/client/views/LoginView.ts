@@ -278,11 +278,6 @@ export default defineComponent({
         <div class="md:col-span-6 p-6 sm:p-8 bg-[#FAF8FC]/60 flex flex-col justify-between">
           <div class="space-y-3">
             <div class="flex items-center justify-between">
-              <div>
-                <div class="text-xs font-mono uppercase tracking-wider text-brand-text font-semibold">Demo Accounts</div>
-                <p class="text-[11px] text-brand-muted mt-0.5">Password: 'password'</p>
-              </div>
-
               <!-- Role filter chips -->
               <div class="flex rounded-md bg-[#F1F5F9] p-0.5 border border-brand-border text-[11px] font-mono">
                 <button 

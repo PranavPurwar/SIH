@@ -318,7 +318,7 @@ export default defineComponent({
                 </td>
 
                 <td class="py-4 px-5 align-top text-center">
-                  <div class="font-mono text-sm text-[#581C87] font-semibold bg-[#F5F3FF] border border-[#DDD6FE] px-2.5 py-1 rounded-lg inline-block">
+                  <div class="font-mono text-xs text-[#581C87] font-semibold bg-[#F5F3FF] border border-[#DDD6FE] px-2.5 py-1 rounded-lg inline-block">
                     {{ app.match_pct }}%
                   </div>
                 </td>
@@ -368,7 +368,7 @@ export default defineComponent({
         class="fixed inset-0 z-50 overflow-y-auto bg-neutral-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6"
         @click.self="closeCandidateModal"
       >
-        <div class="bg-white rounded-2xl border border-brand-border shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div class="bg-white rounded-2xl border border-brand-border shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
           
           <!-- Dialog Header -->
           <div class="p-5 sm:p-6 border-b border-brand-border flex items-start justify-between gap-4 bg-brand-surface/40">
@@ -435,6 +435,7 @@ export default defineComponent({
               </div>
               <p class="text-xs text-brand-muted">
                 Cryptographic signal verification, embedding distance, and assessment question traces evaluated specifically for the skills required by this role.
+                Signal attribution, embedding distance, and assessment question traces evaluated specifically for the skills required by this role.
               </p>
             </div>
 

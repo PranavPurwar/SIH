@@ -40,52 +40,70 @@ app.use(cors({
   credentials: true,
 }));
 
+app.set('trust proxy', 1); // Trust first proxy for rate limiting and IP detection
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 const clientDir = fs.existsSync(path.join(__dirname, 'client'))
   ? path.join(__dirname, 'client')
   : path.join(__dirname, '../src/client');
 
-// On-the-fly client TypeScript transpilation (no pre-saved public/js files needed)
-app.use('/js', async (req: Request, res: Response, next: NextFunction) => {
-  if (!req.path.endsWith('.js')) {
-    return next();
-  }
+const publicDir = fs.existsSync(path.join(__dirname, 'public'))
+  ? path.join(__dirname, 'public')
+  : path.join(__dirname, '../public');
 
-  const relPath = req.path.replace(/\.js$/, '.ts').replace(/^\//, '');
-  const tsFile = path.join(clientDir, relPath);
+const isProd = env.NODE_ENV === 'production';
+const indexHtmlFile = isProd && fs.existsSync(path.join(publicDir, 'index.prod.html'))
+  ? path.join(publicDir, 'index.prod.html')
+  : path.join(publicDir, 'index.html');
 
-  if (fs.existsSync(tsFile)) {
-    try {
-      const code = fs.readFileSync(tsFile, 'utf8');
-      let js: string;
-      const bunGlobal = typeof Bun !== 'undefined' ? (Bun as Record<string, unknown>) : undefined;
-      if (bunGlobal && typeof bunGlobal.Transpiler === 'function') {
-        const transpiler = new (bunGlobal.Transpiler as new (opts: { loader: string }) => { transformSync: (s: string) => string })({ loader: 'ts' });
-        js = transpiler.transformSync(code);
-      } else {
-        const ts: any = await import('typescript');
-        const tsModule = ts.default || ts;
-        js = tsModule.transpileModule(code, {
-          compilerOptions: {
-            target: tsModule.ScriptTarget?.ES2022 ?? 99,
-            module: tsModule.ModuleKind?.ES2022 ?? 7,
-          },
-        }).outputText;
-      }
-      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      return res.send(js);
-    } catch (err) {
-      logger.error({ err, file: tsFile }, 'Failed to transpile client TypeScript on the fly');
-      return res.status(500).send(`/* Transpilation error: ${String(err)} */`);
+// In development, allow on-the-fly client TypeScript transpilation. In production, bundled files in /dist are served statically.
+if (!isProd) {
+  app.use('/js', async (req: Request, res: Response, next: NextFunction) => {
+    if (!req.path.endsWith('.js')) {
+      return next();
     }
-  }
 
-  next();
-});
+    const relPath = req.path.replace(/\.js$/, '.ts').replace(/^\//, '');
+    const tsFile = path.join(clientDir, relPath);
 
-app.use(express.static(path.join(__dirname, '../public')));
+    if (fs.existsSync(tsFile)) {
+      try {
+        const code = fs.readFileSync(tsFile, 'utf8');
+        let js: string;
+        const bunGlobal = typeof Bun !== 'undefined' ? (Bun as Record<string, unknown>) : undefined;
+        if (bunGlobal && typeof bunGlobal.Transpiler === 'function') {
+          const transpiler = new (bunGlobal.Transpiler as new (opts: { loader: string }) => { transformSync: (s: string) => string })({ loader: 'ts' });
+          js = transpiler.transformSync(code);
+        } else {
+          const ts: any = await import('typescript');
+          const tsModule = ts.default || ts;
+          js = tsModule.transpileModule(code, {
+            compilerOptions: {
+              target: tsModule.ScriptTarget?.ES2022 ?? 99,
+              module: tsModule.ModuleKind?.ES2022 ?? 7,
+            },
+          }).outputText;
+        }
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        return res.send(js);
+      } catch (err) {
+        logger.error({ err, file: tsFile }, 'Failed to transpile client TypeScript on the fly');
+        return res.status(500).send(`/* Transpilation error: ${String(err)} */`);
+      }
+    }
+
+    next();
+  });
+}
+
+app.use(express.static(publicDir, {
+  maxAge: isProd ? '1d' : 0,
+  etag: true,
+  index: false,
+}));
+
 app.get('/favicon.ico', (_req: Request, res: Response) => {
   res.status(204).end();
 });
@@ -154,12 +172,12 @@ app.get([
   '/analytics',
   '/programs'
 ], (_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(indexHtmlFile);
 });
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.includes('.')) {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
+    res.sendFile(indexHtmlFile);
     return;
   }
   next();

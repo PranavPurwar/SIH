@@ -42,10 +42,10 @@ export default defineComponent({
           <table class="w-full text-left border-collapse text-xs">
             <thead>
               <tr class="border-b border-brand-border bg-brand-surface/70 text-brand-muted font-mono uppercase tracking-wider text-[11px]">
-                <th class="py-2.5 px-4 font-medium">Required Skill</th>
-                <th class="py-2.5 px-4 font-medium">Project Ingestion Proof</th>
-                <th class="py-2.5 px-4 font-medium">Assessment Signal</th>
-                <th class="py-2.5 px-4 font-medium text-right">Confidence</th>
+                <th class="py-2.5 px-3 font-medium">Required Skill</th>
+                <th class="py-2.5 px-3 font-medium">Project Ingestion Proof</th>
+                <th class="py-2.5 px-3 font-medium">Assessment Signal</th>
+                <th class="py-2.5 px-3 font-medium text-right">Confidence</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-brand-border/70">
@@ -97,11 +97,17 @@ export default defineComponent({
                 <!-- 3. Assessment Signal -->
                 <td class="py-3 px-4 align-top max-w-xs">
                   <div class="flex items-center gap-2">
+                  <div v-if="trace.assessment.passedSuite !== 'Not Attempted'" class="flex items-center gap-2">
                     <span class="font-mono font-medium text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-[10px]">
                       {{ trace.assessment.passedSuite }}
                     </span>
                     <span class="text-brand-text font-semibold text-xs">
                       {{ trace.assessment.score }}% Score
+                    </span>
+                  </div>
+                  <div v-else class="flex items-center gap-2">
+                    <span class="font-mono text-brand-muted bg-brand-surface px-2 py-0.5 rounded border border-brand-border text-[10px]">
+                      Not Attempted
                     </span>
                   </div>
                   <div class="text-[11px] text-brand-muted mt-1 leading-snug line-clamp-2" :title="trace.assessment.question">

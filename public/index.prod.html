@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#FAF8FC]">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillBridge — Placement & Skill Mapping Platform</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+
+  <!-- Production vendor bundles (zero CDN / dev warning dependencies) -->
+  <script src="/vendor/vue.global.prod.js"></script>
+  <script src="/vendor/chart.umd.min.js"></script>
+
+  <!-- Pre-compiled, minified Tailwind CSS -->
+  <link rel="stylesheet" href="/dist/style.min.css" />
+</head>
+
+<body class="min-h-full flex flex-col selection:bg-[#DDD6FE] selection:text-[#1A0B2E]">
+  <div id="app" v-cloak class="flex-1 flex flex-col min-h-screen"></div>
+
+  <!-- Pre-bundled, minified Application Code -->
+  <script type="module" src="/dist/app.min.js"></script>
+</body>
+
+</html>

@@ -146,7 +146,14 @@ api.getAllApplications = (): Promise<{ applications: JobApplication[] }> =>
   api<{ applications: JobApplication[] }>('GET', '/api/applications');
 api.getStudentApplications = (studentId: string): Promise<{ applications: JobApplication[] }> => 
   api<{ applications: JobApplication[] }>('GET', `/api/applications/student/${encodeURIComponent(studentId)}`);
-api.applyJob = (payload: { student_id: string; job_id: string; match_pct?: number }): Promise<{ success: boolean; application: JobApplication }> => 
+export interface ApplyJobPayload {
+  student_id: string;
+  job_id: string;
+  match_pct?: number;
+  notes?: string;
+}
+
+api.applyJob = (payload: ApplyJobPayload): Promise<{ success: boolean; application: JobApplication }> => 
   api<{ success: boolean; application: JobApplication }>('POST', '/api/applications/apply', payload);
 api.updateApplicationStatus = (id: string, status: string, notes?: string): Promise<{ success: boolean; application: JobApplication }> => 
   api<{ success: boolean; application: JobApplication }>('PATCH', `/api/applications/${encodeURIComponent(id)}/status`, { status, notes });

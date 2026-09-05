@@ -27,3 +27,12 @@ export const studentIdParamSchema = z.object({
 export const jobIdParamSchema = z.object({
   jobId: z.string().min(1),
 });
+
+export const applyJobSchema = z.object({
+  student_id: z.string().min(1, 'student_id is required'),
+  job_id: z.string().min(1, 'job_id is required'),
+  match_pct: z.number().min(0).max(100).default(0),
+  notes: z.string().optional(),
+});
+
+export type ApplyJobInput = z.infer<typeof applyJobSchema>;

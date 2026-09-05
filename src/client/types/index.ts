@@ -162,7 +162,9 @@ export interface StudentAssessmentAttempt {
   score?: number;
   score_pct?: number;
   passed?: boolean;
+  institution?: string;
   completed_at?: string;
+  target_skills?: string[];
 }
 
 export interface StudentProfile {

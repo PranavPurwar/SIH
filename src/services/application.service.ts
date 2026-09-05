@@ -1,5 +1,6 @@
 import { pgPool } from '../db/connection.js';
 import { NotFoundError, AppError } from '../lib/errors.js';
+import type { StudentProfile, JobListing } from '../types/index.js';
 
 export interface ApplicationRecord {
   id: string;
@@ -10,8 +11,10 @@ export interface ApplicationRecord {
   notes?: string;
   applied_at: string;
   updated_at: string;
-  job?: any;
-  student?: any;
+  job?: Partial<JobListing>;
+  student?: Partial<StudentProfile>;
+  job_title?: string;
+  company?: string;
 }
 
 export async function submitApplication(
@@ -32,8 +35,9 @@ export async function submitApplication(
     `;
     const { rows } = await pgPool.query(query, [studentId, jobId, matchPct, notes || null]);
     return rows[0];
-  } catch (error: any) {
-    throw new AppError(500, 'DB_ERROR', 'Failed to submit application: ' + error.message);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Database error';
+    throw new AppError(500, 'DB_ERROR', 'Failed to submit application: ' + msg);
   }
 }
 
@@ -53,7 +57,6 @@ export async function getStudentApplications(studentId: string): Promise<Applica
         ) as job
       FROM applications a
       LEFT JOIN jobs j ON a.job_id = j.job_id
-      WHERE a.student_id = $1
       WHERE a.student_id = $1 
          OR a.student_id IN (SELECT id FROM students WHERE email = $1)
          OR a.student_id IN (SELECT email FROM students WHERE id = $1)
@@ -61,8 +64,9 @@ export async function getStudentApplications(studentId: string): Promise<Applica
     `;
     const { rows } = await pgPool.query(query, [studentId]);
     return rows;
-  } catch (error: any) {
-    throw new AppError(500, 'DB_ERROR', 'Failed to retrieve applications');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Database error';
+    throw new AppError(500, 'DB_ERROR', 'Failed to retrieve applications: ' + msg);
   }
 }
 
@@ -95,14 +99,14 @@ export async function getAllApplications(): Promise<ApplicationRecord[]> {
         ) as student
       FROM applications a
       LEFT JOIN jobs j ON a.job_id = j.job_id
-      LEFT JOIN students s ON a.student_id = s.id
       LEFT JOIN students s ON (a.student_id = s.id OR a.student_id = s.email)
       ORDER BY a.updated_at DESC, a.match_pct DESC;
     `;
     const { rows } = await pgPool.query(query);
     return rows;
-  } catch (error: any) {
-    throw new AppError(500, 'DB_ERROR', 'Failed to retrieve applications');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Database error';
+    throw new AppError(500, 'DB_ERROR', 'Failed to retrieve applications: ' + msg);
   }
 }
 
@@ -127,15 +131,15 @@ export async function getJobApplicants(jobId: string): Promise<ApplicationRecord
         ) as student
       FROM applications a
       LEFT JOIN jobs j ON a.job_id = j.job_id
-      LEFT JOIN students s ON a.student_id = s.id
       LEFT JOIN students s ON (a.student_id = s.id OR a.student_id = s.email)
       WHERE a.job_id = $1
       ORDER BY a.match_pct DESC;
     `;
     const { rows } = await pgPool.query(query, [jobId]);
     return rows;
-  } catch (error: any) {
-    throw new AppError(500, 'DB_ERROR', 'Failed to retrieve applicants');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Database error';
+    throw new AppError(500, 'DB_ERROR', 'Failed to retrieve applicants: ' + msg);
   }
 }
 
@@ -156,8 +160,9 @@ export async function updateApplicationStatus(
       throw new NotFoundError(`Application ${applicationId} not found`);
     }
     return rows[0];
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof NotFoundError) throw error;
-    throw new AppError(500, 'DB_ERROR', 'Failed to update application status');
+    const msg = error instanceof Error ? error.message : 'Database error';
+    throw new AppError(500, 'DB_ERROR', 'Failed to update application status: ' + msg);
   }
 }

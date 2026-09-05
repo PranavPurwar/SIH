@@ -431,7 +431,7 @@ export async function scrapeSkillIndiaDigital(
 
       if (firstRes.ok) {
         const firstJson = await firstRes.json();
-        const totalCourses = firstJson.Data?.Pagination?.TotalCount || 1580;
+        const totalCourses = firstJson.Data?.Pagination?.TotalCount || 0;
         const totalPages = Math.ceil(Math.min(totalCourses, courseLimit) / pageSize);
         const allApiCourses: any[] = [...(firstJson.Data?.Courses || [])];
 
@@ -493,7 +493,7 @@ export async function scrapeSkillIndiaDigital(
             difficulty: 'Intermediate',
             url: c.Id ? `https://www.skillindiadigital.gov.in/courses/detail/${c.Id}` : 'https://www.skillindiadigital.gov.in/courses',
             duration_hours: durationHours,
-            rating: c.CourseStatistic?.RatingAverage || 4.7,
+            rating: c.CourseStatistic?.RatingAverage ?? null,
           });
 
           if (candidateItems.length - initialCandidates >= courseLimit) break;
